@@ -1,0 +1,62 @@
+# ============================================
+# NETLIFY CONFIGURATION - JG PAZOTTO v2.0
+# ============================================
+
+[build]
+  command = "echo 'Building JG Pazotto...' && exit 0"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "20.11.0"
+
+# ============================================
+# REDIRECT RULES
+# ============================================
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ============================================
+# HEADER SECURITY
+# ============================================
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# ============================================
+# CACHE CONFIGURATION
+# ============================================
+[[headers]]
+  for = "*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+[context.production.environment]
+  VITE_SUPABASE_URL = "https://seu-projeto.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "sua-chave-anonima"
+  NODE_ENV = "production"
+
+[context.deploy-preview]
+  command = "echo 'Deploy Preview'"
+
+[context.branch-deploy]
+  command = "echo 'Branch Deploy'"
