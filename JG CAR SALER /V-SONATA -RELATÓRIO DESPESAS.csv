@@ -1,0 +1,30 @@
+Dia ,Obs ,Fotos ,Gastos $
+out. 7,COMPRA ,,$	1912.00
+out. 7,DEELER ,,$	200.00
+out. 8,PECAS ,RETIRAR ,$	20.00
+out. 8,ENTRADA ,PP,$	3.00
+out. 8,PECAS ,GREIL CS ,$	83.00
+out. 8,LIMPADOR ,,$	9.00
+out. 8,LAVAGEM ,,$	10.00
+10 out.,COMPRESSOR ,,$	65.00
+11 out.,ALTERNADOR ,,$	54.00
+out. 11,SMOG ,,$	50.00
+out. 11,AMORTECEDOR ,,$	12.00
+out. 11,BREAK LIGHT ,,$	200.00
+13 out.,BATERIA ,,$	220.00
+13 out.,CANETA PINT ,,$	28.00
+19 out.,TRANSF,,$	232.00
+19 out.,CANETA PINT,,$	24.00
+2 nov.,Airbag ,,$	25.00
+10 nov.,Carfax ,,$	5.00
+30 dez.,Carga gas ,,$	100.00
+20 dez.,alternador ,,$	130.00
+30 dez.,Troca compressor ,,$	130.00
+21 mar.,Susp. Seguro ,,$	14.25
+17 ago.,Carfax ,,$	5.00
+15 ago.,FASTRAK,,$	20.00
+15 ago.,FASTRAK,,$	385.00
+15 ago.,FASTRAK,,$	48.00
+8 jul.,SEGURO ,,$	150.00
+,,,
+Total ,,,$	4134.25

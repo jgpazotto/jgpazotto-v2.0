@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JG Pazotto - Sistema de Gestão Empresarial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { scroll-behavior: smooth; }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Montserrat:wght@400;500;600;700&display=swap');
+
+        body { font-family: 'Montserrat', sans-serif; background: linear-gradient(135deg, #0f0f0f 0%, #1a3a52 50%, #0f0f0f 100%); }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Playfair Display', serif; }
+
+        .login-minimal {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+        }
+
+        .input-field {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4af37 0%, #e5c158 100%);
+            color: #0f0f0f;
+            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
+        }
+
+        .dashboard { background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+
+        .stat-box {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(26, 58, 82, 0.1) 100%);
+            border-left: 4px solid #d4af37;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #f3f4f6;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: white;
+            border-bottom: 3px solid #d4af37;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-alugado { background: #dbeafe; color: #1e40af; }
+        .badge-disponivel { background: #dcfce7; color: #166534; }
+        .badge-venda { background: #fef3c7; color: #92400e; }
+        .badge-vendido { background: #fee2e2; color: #991b1b; }
+
+        .item-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+        }
+
+        .item-card:hover {
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 15px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- LOGIN DISCRETO -->
+    <div id="loginSection" class="login-minimal">
+        <h2 class="text-xl font-bold text-gray-900 mb-2">JG Pazotto</h2>
+        <p class="text-xs text-gray-500 mb-6">Sistema de Gestão Empresarial</p>
+
+        <form id="loginForm" class="space-y-3">
+            <input type="email" id="email" class="input-field w-full" placeholder="Email" required>
+            <input type="password" id="password" class="input-field w-full" placeholder="Senha" required>
+            <button type="submit" class="btn-gold w-full text-sm">Acessar</button>
+        </form>
+
+        <div id="loginError" class="mt-4 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs hidden"></div>
+
+        <div class="mt-6 pt-4 border-t border-gray-200">
+            <p class="text-xs text-gray-500 text-center">Demo: joice@jgpazotto.com / senha123</p>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboardSection" class="hidden w-full min-h-screen bg-gray-100 p-6">
+
+        <!-- HEADER -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-bold text-white mb-1">JG Pazotto</h1>
+                <p class="text-gray-300">Sistema de Gestão Integrado</p>
+            </div>
+            <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                <i class="fas fa-sign-out-alt mr-2"></i>Sair
+            </button>
+        </div>
+
+        <!-- STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat-box">
+                <div class="text-2xl font-bold text-gray-900" id="countAluguel">0</div>
+                <p class="text-sm text-gray-600 mt-1">Veículos Aluguel</p>
+            </div>
+            <div class="stat-box">
+                <div class="text-2xl font-bold text-gray-900" id="countVenda">0</div>
+                <p class="text-sm text-gray-600 mt-1">Veículos Venda</p>
+            </div>
+            <div class="stat-box">
+                <div class="text-2xl font-bold text-gray-900" id="countImovelBR">0</div>
+                <p class="text-sm text-gray-600 mt-1">Imóveis Brasil</p>
+            </div>
+            <div class="stat-box">
+                <div class="text-2xl font-bold text-gray-900" id="countImovelUSA">0</div>
+                <p class="text-sm text-gray-600 mt-1">Imóveis USA</p>
+            </div>
+        </div>
+
+        <!-- DASHBOARD PRINCIPAL -->
+        <div class="dashboard p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Painel de Controle</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h3 class="font-bold text-gray-900 mb-2">Veículos Aluguel</h3>
+                    <div class="text-3xl font-bold text-blue-600" id="dashAluguel">0</div>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
+                    <h3 class="font-bold text-gray-900 mb-2">Veículos Venda</h3>
+                    <div class="text-3xl font-bold text-green-600" id="dashVenda">0</div>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h3 class="font-bold text-gray-900 mb-2">Imóveis Brasil</h3>
+                    <div class="text-3xl font-bold text-purple-600" id="dashImovelBR">0</div>
+                </div>
+                <div class="border-l-4 border-orange-500 pl-4">
+                    <h3 class="font-bold text-gray-900 mb-2">Imóveis USA</h3>
+                    <div class="text-3xl font-bold text-orange-600" id="dashImovelUSA">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABAS DE GERENCIAMENTO -->
+        <div class="dashboard">
+            <div class="flex border-b mb-6">
+                <button class="tab-btn active" onclick="switchTab('dashboard')">
+                    <i class="fas fa-chart-line mr-2"></i>Dashboard
+                </button>
+                <button class="tab-btn" onclick="switchTab('veiculos')">
+                    <i class="fas fa-car mr-2"></i>Gerenciar Veículos
+                </button>
+                <button class="tab-btn" onclick="switchTab('imoveis')">
+                    <i class="fas fa-home mr-2"></i>Gerenciar Imóveis
+                </button>
+                <button class="tab-btn" onclick="switchTab('despesas')">
+                    <i class="fas fa-money-bill mr-2"></i>Despesas
+                </button>
+            </div>
+
+            <!-- TAB: DASHBOARD -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-blue-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-blue-900 mb-2">📊 Última Atualização</h3>
+                        <p id="lastUpdate" class="text-sm text-blue-700">-</p>
+                    </div>
+                    <div class="bg-green-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-green-900 mb-2">✅ Status Sistema</h3>
+                        <p class="text-sm text-green-700">Online e funcionando</p>
+                    </div>
+                    <div class="bg-purple-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-purple-900 mb-2">🔐 Usuário</h3>
+                        <p id="userDisplay" class="text-sm text-purple-700">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: VEÍCULOS -->
+            <div id="tab-veiculos" class="tab-content hidden">
+                <div class="mb-6">
+                    <button class="btn-gold" onclick="openVehicleModal()">
+                        <i class="fas fa-plus mr-2"></i>Adicionar Veículo
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block font-bold mb-2">Filtrar por Tipo:</label>
+                        <select id="vehicleFilter" class="input-field w-full" onchange="filterVehicles()">
+                            <option value="">Todos</option>
+                            <option value="Aluguel">Aluguel</option>
+                            <option value="Venda">Venda</option>
+                            <option value="Disponível">Disponível</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="vehiclesList"></div>
+            </div>
+
+            <!-- TAB: IMÓVEIS -->
+            <div id="tab-imoveis" class="tab-content hidden">
+                <div class="mb-6">
+                    <button class="btn-gold" onclick="openPropertyModal()">
+                        <i class="fas fa-plus mr-2"></i>Adicionar Imóvel
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block font-bold mb-2">Filtrar por País:</label>
+                        <select id="propertyFilter" class="input-field w-full" onchange="filterProperties()">
+                            <option value="">Todos</option>
+                            <option value="Brasil">Brasil</option>
+                            <option value="USA">USA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="propertiesList"></div>
+            </div>
+
+            <!-- TAB: DESPESAS -->
+            <div id="tab-despesas" class="tab-content hidden">
+                <div class="bg-yellow-50 p-4 rounded-lg mb-6 border border-yellow-200">
+                    <p class="text-yellow-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Módulo de Despesas - Próximas implementações: Registro por veículo/imóvel, Rastreamento de garantias, Relatórios de rentabilidade
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADICIONAR/EDITAR VEÍCULO -->
+    <div id="vehicleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold" id="vehicleModalTitle">Adicionar Veículo</h2>
+                <button class="close-btn" onclick="closeVehicleModal()">&times;</button>
+            </div>
+
+            <form id="vehicleForm" class="space-y-6">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tipo *</label>
+                        <select id="vehicleType" required>
+                            <option value="">Selecione...</option>
+                            <option value="Aluguel">Aluguel</option>
+                            <option value="Venda">Venda</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Placa *</label>
+                        <input type="text" id="vehiclePlaca" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Marca *</label>
+                        <input type="text" id="vehicleMarca" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo *</label>
+                        <input type="text" id="vehicleModelo" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Ano *</label>
+                        <input type="number" id="vehicleAno" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Quilometragem</label>
+                        <input type="number" id="vehicleKm" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Cor</label>
+                        <input type="text" id="vehicleCor">
+                    </div>
+                    <div class="form-group">
+                        <label>Combustível</label>
+                        <select id="vehicleCombustivel">
+                            <option value="">Selecione...</option>
+                            <option value="Gasolina">Gasolina</option>
+                            <option value="Diesel">Diesel</option>
+                            <option value="Híbrido">Híbrido</option>
+                            <option value="Elétrico">Elétrico</option>
+                            <option value="Flex">Flex</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Câmbio</label>
+                        <select id="vehicleCambio">
+                            <option value="">Selecione...</option>
+                            <option value="Manual">Manual</option>
+                            <option value="Automático">Automático</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>País *</label>
+                        <select id="vehiclePais" required>
+                            <option value="">Selecione...</option>
+                            <option value="Brasil">Brasil</option>
+                            <option value="USA">USA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Valor (R$ ou USD) *</label>
+                        <input type="number" id="vehicleValor" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="vehicleStatus" required>
+                            <option value="Disponível">Disponível</option>
+                            <option value="Alugado">Alugado</option>
+                            <option value="Vendido">Vendido</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Características</label>
+                    <textarea id="vehicleCaracteristicas" placeholder="Ar condicionado, Direção hidráulica, Vidro elétrico, Trava elétrica, etc..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Observações</label>
+                    <textarea id="vehicleObservacoes" placeholder="Notas adicionais..."></textarea>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="submit" class="btn-gold flex-1">
+                        <i class="fas fa-save mr-2"></i>Salvar
+                    </button>
+                    <button type="button" class="bg-gray-300 text-gray-900 px-6 py-2 rounded-lg font-bold" onclick="closeVehicleModal()">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADICIONAR/EDITAR IMÓVEL -->
+    <div id="propertyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold" id="propertyModalTitle">Adicionar Imóvel</h2>
+                <button class="close-btn" onclick="closePropertyModal()">&times;</button>
+            </div>
+
+            <form id="propertyForm" class="space-y-6">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>País *</label>
+                        <select id="propertyPais" required onchange="updatePropertyFields()">
+                            <option value="">Selecione...</option>
+                            <option value="Brasil">Brasil</option>
+                            <option value="USA">USA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo *</label>
+                        <select id="propertyTipo" required>
+                            <option value="">Selecione...</option>
+                            <option value="Apartamento">Apartamento</option>
+                            <option value="Casa">Casa</option>
+                            <option value="Condomínio">Condomínio</option>
+                            <option value="Comercial">Comercial</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Endereço *</label>
+                        <input type="text" id="propertyEndereco" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cidade *</label>
+                        <input type="text" id="propertyCidade" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Estado/Região *</label>
+                        <input type="text" id="propertyEstado" required>
+                    </div>
+                    <div class="form-group">
+                        <label>CEP/ZIP Code</label>
+                        <input type="text" id="propertyZip">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Quartos *</label>
+                        <input type="number" id="propertyQuartos" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Banheiros *</label>
+                        <input type="number" id="propertyBanheiros" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label id="areaLabel">Metragem (m²) *</label>
+                        <input type="number" id="propertyArea" step="0.01" required>
+                    </div>
+                    <div class="form-group" id="sqftGroup" style="display:none;">
+                        <label>Sqft</label>
+                        <input type="number" id="propertySqft" step="0.01">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Valor (R$ ou USD) *</label>
+                        <input type="number" id="propertyValor" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select id="propertyStatus" required>
+                            <option value="Disponível">Disponível</option>
+                            <option value="Alugado">Alugado</option>
+                            <option value="Venda">Venda</option>
+                            <option value="Vendido">Vendido</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Características</label>
+                    <textarea id="propertyCaracteristicas" placeholder="Garagem, Elevador, Lazer, Ar condicionado, Aquecimento, Segurança 24h, etc..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="propertyDescricao" placeholder="Descrição detalhada do imóvel..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Observações</label>
+                    <textarea id="propertyObservacoes" placeholder="Notas adicionais para gestão interna..."></textarea>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="submit" class="btn-gold flex-1">
+                        <i class="fas fa-save mr-2"></i>Salvar
+                    </button>
+                    <button type="button" class="bg-gray-300 text-gray-900 px-6 py-2 rounded-lg font-bold" onclick="closePropertyModal()">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // SISTEMA DE DADOS ROBUSTO
+        const DataManager = {
+            init() {
+                const stored = localStorage.getItem('jgpazotto_data');
+                if (!stored) {
+                    this.data = {
+                        vehicles: [],
+                        properties: [],
+                        lastUpdate: new Date().toLocaleString('pt-BR')
+                    };
+                    this.save();
+                } else {
+                    this.data = JSON.parse(stored);
+                }
+                this.updateCounters();
+            },
+
+            save() {
+                this.data.lastUpdate = new Date().toLocaleString('pt-BR');
+                localStorage.setItem('jgpazotto_data', JSON.stringify(this.data));
+            },
+
+            updateCounters() {
+                const aluguel = this.data.vehicles.filter(v => v.type === 'Aluguel').length;
+                const venda = this.data.vehicles.filter(v => v.type === 'Venda').length;
+                const imovelBR = this.data.properties.filter(p => p.pais === 'Brasil').length;
+                const imovelUSA = this.data.properties.filter(p => p.pais === 'USA').length;
+
+                document.getElementById('countAluguel').textContent = aluguel;
+                document.getElementById('countVenda').textContent = venda;
+                document.getElementById('countImovelBR').textContent = imovelBR;
+                document.getElementById('countImovelUSA').textContent = imovelUSA;
+
+                document.getElementById('dashAluguel').textContent = aluguel;
+                document.getElementById('dashVenda').textContent = venda;
+                document.getElementById('dashImovelBR').textContent = imovelBR;
+                document.getElementById('dashImovelUSA').textContent = imovelUSA;
+
+                document.getElementById('lastUpdate').textContent = this.data.lastUpdate;
+            }
+        };
+
+        // AUTENTICAÇÃO
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (email === 'joice@jgpazotto.com' && password === 'senha123') {
+                localStorage.setItem('jgpazotto_user', email);
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboardSection').classList.remove('hidden');
+                document.getElementById('userDisplay').textContent = email;
+                DataManager.init();
+                renderVehicles();
+                renderProperties();
+            } else {
+                document.getElementById('loginError').textContent = 'Email ou senha inválidos';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('jgpazotto_user');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+        });
+
+        // ABAS
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            event.target.closest('.tab-btn').classList.add('active');
+        }
+
+        // VEÍCULOS
+        function openVehicleModal() {
+            document.getElementById('vehicleForm').reset();
+            document.getElementById('vehicleModalTitle').textContent = 'Adicionar Veículo';
+            document.getElementById('vehicleModal').classList.add('show');
+        }
+
+        function closeVehicleModal() {
+            document.getElementById('vehicleModal').classList.remove('show');
+        }
+
+        document.getElementById('vehicleForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const vehicle = {
+                id: Date.now(),
+                type: document.getElementById('vehicleType').value,
+                placa: document.getElementById('vehiclePlaca').value,
+                marca: document.getElementById('vehicleMarca').value,
+                modelo: document.getElementById('vehicleModelo').value,
+                ano: document.getElementById('vehicleAno').value,
+                km: document.getElementById('vehicleKm').value || 0,
+                cor: document.getElementById('vehicleCor').value,
+                combustivel: document.getElementById('vehicleCombustivel').value,
+                cambio: document.getElementById('vehicleCambio').value,
+                pais: document.getElementById('vehiclePais').value,
+                valor: parseFloat(document.getElementById('vehicleValor').value),
+                status: document.getElementById('vehicleStatus').value,
+                caracteristicas: document.getElementById('vehicleCaracteristicas').value,
+                observacoes: document.getElementById('vehicleObservacoes').value
+            };
+
+            DataManager.data.vehicles.push(vehicle);
+            DataManager.save();
+            DataManager.updateCounters();
+            renderVehicles();
+            closeVehicleModal();
+            alert('✅ Veículo adicionado com sucesso!');
+        });
+
+        function renderVehicles() {
+            const list = document.getElementById('vehiclesList');
+            list.innerHTML = '';
+
+            if (DataManager.data.vehicles.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-6">Nenhum veículo cadastrado</p>';
+                return;
+            }
+
+            DataManager.data.vehicles.forEach(vehicle => {
+                const html = `
+                    <div class="item-card">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 class="font-bold text-lg">${vehicle.marca} ${vehicle.modelo} (${vehicle.ano})</h3>
+                                <p class="text-sm text-gray-600">Placa: <span class="font-mono font-bold">${vehicle.placa}</span></p>
+                            </div>
+                            <span class="badge badge-${vehicle.status === 'Alugado' ? 'alugado' : vehicle.status === 'Disponível' ? 'disponivel' : 'venda'}">
+                                ${vehicle.status}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div><span class="text-gray-600">Tipo:</span> <span class="font-bold">${vehicle.type}</span></div>
+                            <div><span class="text-gray-600">KM:</span> <span class="font-bold">${parseInt(vehicle.km).toLocaleString()}</span></div>
+                            <div><span class="text-gray-600">Combustível:</span> <span class="font-bold">${vehicle.combustivel}</span></div>
+                            <div><span class="text-gray-600">País:</span> <span class="font-bold">${vehicle.pais}</span></div>
+                            <div><span class="text-gray-600">Valor:</span> <span class="font-bold text-green-600">${vehicle.pais === 'Brasil' ? 'R$' : 'USD'} ${parseFloat(vehicle.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+                        </div>
+                        ${vehicle.caracteristicas ? `<p class="text-xs text-gray-700 mt-2"><strong>Características:</strong> ${vehicle.caracteristicas}</p>` : ''}
+                        <div class="flex gap-2 mt-3">
+                            <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded" onclick="editVehicle(${vehicle.id})">Editar</button>
+                            <button class="text-xs bg-red-500 text-white px-3 py-1 rounded" onclick="deleteVehicle(${vehicle.id})">Deletar</button>
+                        </div>
+                    </div>
+                `;
+                list.innerHTML += html;
+            });
+        }
+
+        function deleteVehicle(id) {
+            if (confirm('Tem certeza que deseja deletar este veículo?')) {
+                DataManager.data.vehicles = DataManager.data.vehicles.filter(v => v.id !== id);
+                DataManager.save();
+                DataManager.updateCounters();
+                renderVehicles();
+                alert('✅ Veículo deletado');
+            }
+        }
+
+        function filterVehicles() {
+            const filter = document.getElementById('vehicleFilter').value;
+            // Implementar filtro conforme necessário
+        }
+
+        // IMÓVEIS
+        function openPropertyModal() {
+            document.getElementById('propertyForm').reset();
+            document.getElementById('propertyModalTitle').textContent = 'Adicionar Imóvel';
+            document.getElementById('propertyModal').classList.add('show');
+            updatePropertyFields();
+        }
+
+        function closePropertyModal() {
+            document.getElementById('propertyModal').classList.remove('show');
+        }
+
+        function updatePropertyFields() {
+            const pais = document.getElementById('propertyPais').value;
+            if (pais === 'USA') {
+                document.getElementById('sqftGroup').style.display = 'block';
+                document.getElementById('areaLabel').textContent = 'Metragem (Sqft)';
+            } else {
+                document.getElementById('sqftGroup').style.display = 'none';
+                document.getElementById('areaLabel').textContent = 'Metragem (m²)';
+            }
+        }
+
+        document.getElementById('propertyForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const property = {
+                id: Date.now(),
+                pais: document.getElementById('propertyPais').value,
+                tipo: document.getElementById('propertyTipo').value,
+                endereco: document.getElementById('propertyEndereco').value,
+                cidade: document.getElementById('propertyCidade').value,
+                estado: document.getElementById('propertyEstado').value,
+                zip: document.getElementById('propertyZip').value,
+                quartos: document.getElementById('propertyQuartos').value,
+                banheiros: document.getElementById('propertyBanheiros').value,
+                area: parseFloat(document.getElementById('propertyArea').value),
+                sqft: document.getElementById('propertySqft').value || 0,
+                valor: parseFloat(document.getElementById('propertyValor').value),
+                status: document.getElementById('propertyStatus').value,
+                caracteristicas: document.getElementById('propertyCaracteristicas').value,
+                descricao: document.getElementById('propertyDescricao').value,
+                observacoes: document.getElementById('propertyObservacoes').value
+            };
+
+            DataManager.data.properties.push(property);
+            DataManager.save();
+            DataManager.updateCounters();
+            renderProperties();
+            closePropertyModal();
+            alert('✅ Imóvel adicionado com sucesso!');
+        });
+
+        function renderProperties() {
+            const list = document.getElementById('propertiesList');
+            list.innerHTML = '';
+
+            if (DataManager.data.properties.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-6">Nenhum imóvel cadastrado</p>';
+                return;
+            }
+
+            DataManager.data.properties.forEach(property => {
+                const html = `
+                    <div class="item-card">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 class="font-bold text-lg">${property.tipo} em ${property.cidade}, ${property.estado}</h3>
+                                <p class="text-sm text-gray-600">${property.endereco}</p>
+                            </div>
+                            <span class="badge badge-${property.status === 'Alugado' ? 'alugado' : property.status === 'Disponível' ? 'disponivel' : 'venda'}">
+                                ${property.status}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                            <div><span class="text-gray-600">Quartos:</span> <span class="font-bold">${property.quartos}</span></div>
+                            <div><span class="text-gray-600">Banheiros:</span> <span class="font-bold">${property.banheiros}</span></div>
+                            <div><span class="text-gray-600">Área:</span> <span class="font-bold">${parseFloat(property.area).toLocaleString('pt-BR')} ${property.pais === 'USA' ? 'sqft' : 'm²'}</span></div>
+                            <div><span class="text-gray-600">País:</span> <span class="font-bold">${property.pais}</span></div>
+                            <div><span class="text-gray-600">Valor:</span> <span class="font-bold text-green-600">${property.pais === 'Brasil' ? 'R$' : 'USD'} ${parseFloat(property.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+                        </div>
+                        ${property.caracteristicas ? `<p class="text-xs text-gray-700 mt-2"><strong>Características:</strong> ${property.caracteristicas}</p>` : ''}
+                        ${property.descricao ? `<p class="text-xs text-gray-700 mt-1"><strong>Descrição:</strong> ${property.descricao}</p>` : ''}
+                        <div class="flex gap-2 mt-3">
+                            <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded" onclick="editProperty(${property.id})">Editar</button>
+                            <button class="text-xs bg-red-500 text-white px-3 py-1 rounded" onclick="deleteProperty(${property.id})">Deletar</button>
+                        </div>
+                    </div>
+                `;
+                list.innerHTML += html;
+            });
+        }
+
+        function deleteProperty(id) {
+            if (confirm('Tem certeza que deseja deletar este imóvel?')) {
+                DataManager.data.properties = DataManager.data.properties.filter(p => p.id !== id);
+                DataManager.save();
+                DataManager.updateCounters();
+                renderProperties();
+                alert('✅ Imóvel deletado');
+            }
+        }
+
+        function filterProperties() {
+            // Implementar filtro conforme necessário
+        }
+
+        // Inicializar ao carregar
+        if (localStorage.getItem('jgpazotto_user')) {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            document.getElementById('userDisplay').textContent = localStorage.getItem('jgpazotto_user');
+            DataManager.init();
+            renderVehicles();
+            renderProperties();
+        }
+    </script>
+</body>
+</html>

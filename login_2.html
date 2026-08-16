@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JG Pazotto - Sistema Administrativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { scroll-behavior: smooth; }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Montserrat:wght@400;500;600;700&display=swap');
+
+        body { font-family: 'Montserrat', sans-serif; background: linear-gradient(135deg, #0f0f0f 0%, #1a3a52 50%, #0f0f0f 100%); }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Playfair Display', serif; }
+
+        .login-minimal {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+        }
+
+        .input-field {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #d4af37 0%, #e5c158 100%);
+            color: #0f0f0f;
+            font-weight: 700;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
+        }
+
+        .dashboard { background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+
+        .stat-box {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(26, 58, 82, 0.1) 100%);
+            border-left: 4px solid #d4af37;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .item-row {
+            border-bottom: 1px solid #f3f4f6;
+            padding: 12px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-row:last-child { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-alugado { background: #dbeafe; color: #1e40af; }
+        .badge-disponivel { background: #dcfce7; color: #166534; }
+        .badge-venda { background: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- LOGIN DISCRETO -->
+    <div id="loginSection" class="login-minimal">
+        <h2 class="text-xl font-bold text-gray-900 mb-2">JG Pazotto</h2>
+        <p class="text-xs text-gray-500 mb-6">Sistema de Gestão</p>
+
+        <form id="loginForm" class="space-y-3">
+            <input type="email" id="email" class="input-field w-full" placeholder="Email" required>
+            <input type="password" id="password" class="input-field w-full" placeholder="Senha" required>
+            <button type="submit" class="btn-gold w-full text-sm">Acessar</button>
+        </form>
+
+        <div id="loginError" class="mt-4 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs hidden"></div>
+
+        <p class="text-xs text-gray-500 mt-4 text-center">Demo: joice@jgpazotto.com / senha123</p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboardSection" class="hidden w-full max-w-6xl">
+        <div class="dashboard p-8">
+            <!-- HEADER -->
+            <div class="flex justify-between items-center mb-8 pb-6 border-b">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">JG Pazotto</h1>
+                    <p class="text-sm text-gray-500">Bem-vindo, <span id="userName">Joice</span></p>
+                </div>
+                <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Sair
+                </button>
+            </div>
+
+            <!-- STATS -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="stat-box">
+                    <p class="text-xs text-gray-600">Aluguel</p>
+                    <p class="text-3xl font-bold text-gray-900">30</p>
+                </div>
+                <div class="stat-box">
+                    <p class="text-xs text-gray-600">Venda</p>
+                    <p class="text-3xl font-bold text-gray-900">37</p>
+                </div>
+                <div class="stat-box">
+                    <p class="text-xs text-gray-600">Imóveis Brasil</p>
+                    <p class="text-3xl font-bold text-gray-900">3</p>
+                </div>
+                <div class="stat-box">
+                    <p class="text-xs text-gray-600">Imóveis EUA</p>
+                    <p class="text-3xl font-bold text-gray-900">2</p>
+                </div>
+            </div>
+
+            <!-- TABS -->
+            <div class="flex gap-2 mb-6 border-b flex-wrap">
+                <button class="tab-btn active px-4 py-2 text-sm font-semibold border-b-2 border-yellow-500" data-tab="dashboard">📊 Dashboard</button>
+                <button class="tab-btn px-4 py-2 text-sm font-semibold" data-tab="aluguel">🚗 Aluguel (30)</button>
+                <button class="tab-btn px-4 py-2 text-sm font-semibold" data-tab="venda">🏷️ Venda (37)</button>
+                <button class="tab-btn px-4 py-2 text-sm font-semibold" data-tab="imoveis">🏠 Imóveis (5)</button>
+                <button class="tab-btn px-4 py-2 text-sm font-semibold" data-tab="despesas">💰 Despesas</button>
+            </div>
+
+            <!-- DASHBOARD TAB -->
+            <div id="dashboard" class="tab-content">
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <h3 class="font-bold text-gray-900 mb-4">Resumo da Plataforma</h3>
+                    <div class="space-y-2 text-sm text-gray-700">
+                        <p><strong>30 Carros em Aluguel</strong> - C-MAX predominante, gerando receita mensal constante</p>
+                        <p><strong>37 Carros à Venda</strong> - Estoque variado para comercialização</p>
+                        <p><strong>3 Imóveis no Brasil</strong> - Sorocaba, Santo André, São Roque (alugados)</p>
+                        <p><strong>2 Propriedades EUA</strong> - Arkansas (disponíveis para venda)</p>
+                        <p class="text-xs text-gray-500 mt-4">💡 Dica: Use as abas acima para gerenciar cada categoria</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALUGUEL TAB -->
+            <div id="aluguel" class="tab-content hidden">
+                <div class="bg-white border rounded-lg p-4">
+                    <h3 class="font-bold text-gray-900 mb-4">30 Carros em Aluguel</h3>
+                    <div class="space-y-2" id="aluguelList"></div>
+                </div>
+            </div>
+
+            <!-- VENDA TAB -->
+            <div id="venda" class="tab-content hidden">
+                <div class="bg-white border rounded-lg p-4">
+                    <h3 class="font-bold text-gray-900 mb-4">37 Carros à Venda</h3>
+                    <div class="space-y-2" id="vendaList"></div>
+                </div>
+            </div>
+
+            <!-- IMÓVEIS TAB -->
+            <div id="imoveis" class="tab-content hidden">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Brasil -->
+                    <div class="bg-white border rounded-lg p-4">
+                        <h3 class="font-bold text-gray-900 mb-4">🇧🇷 Brasil (Alugados)</h3>
+                        <div class="space-y-2" id="imoveisBrasil"></div>
+                    </div>
+                    <!-- EUA -->
+                    <div class="bg-white border rounded-lg p-4">
+                        <h3 class="font-bold text-gray-900 mb-4">🇺🇸 Estados Unidos (À Venda)</h3>
+                        <div class="space-y-2" id="imoveisEUA"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESPESAS TAB -->
+            <div id="despesas" class="tab-content hidden">
+                <div class="bg-white border rounded-lg p-6">
+                    <h3 class="font-bold text-gray-900 mb-4">💰 Rastreamento de Despesas</h3>
+                    <p class="text-sm text-gray-600 mb-4">Sistema em desenvolvimento para rastrear custos operacionais, manutenção e garantias.</p>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded p-4 text-sm text-blue-900">
+                        <p><strong>Próximas implementações:</strong></p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Registro de despesas por veículo/imóvel</li>
+                            <li>Rastreamento de garantias</li>
+                            <li>Relatórios de rentabilidade</li>
+                            <li>Histórico de manutenção</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const users = {
+            'joice@jgpazotto.com': { name: 'Joice Pazotto', password: 'senha123' },
+            'geraldo@jgpazotto.com': { name: 'Geraldo Pazotto', password: 'senha123' },
+            'func@jgpazotto.com': { name: 'Funcionário', password: 'senha123' }
+        };
+
+        const aluguelData = [
+            {placa:'9DHW447',marca:'C-MAX',cliente:'JULIO',valor:'4.634'},
+            {placa:'8YQB922',marca:'C-MAX',cliente:'WILMAR',valor:'32.400'},
+            {placa:'9FSM548',marca:'C-MAX',cliente:'DANIEL',valor:'3.810'},
+            {placa:'9BTG007',marca:'C-MAX',cliente:'JINER',valor:'6.900'},
+            {placa:'9HGT166',marca:'C-MAX',cliente:'N/A',valor:'6.217'},
+            {placa:'9FUJ568',marca:'C-MAX',cliente:'JOEL',valor:'5.242'},
+            {placa:'8ZMH712',marca:'C-MAX',cliente:'N/A',valor:'1.830'},
+            {placa:'9EPA280',marca:'C-MAX',cliente:'CHUCHO',valor:'3.020'},
+            {placa:'8YES705',marca:'C-MAX',cliente:'N/A',valor:'1.391'},
+            {placa:'9FSM563',marca:'C-MAX',cliente:'N/A',valor:'4.590'},
+            {placa:'8YVE446',marca:'C-MAX',cliente:'N/A',valor:'2.038'},
+            {placa:'8YES706',marca:'C-MAX',cliente:'OSWALDO',valor:'7.592'},
+            {placa:'9ETZ311',marca:'C-MAX',cliente:'N/A',valor:'6.307'},
+            {placa:'9HJJ759',marca:'C-MAX',cliente:'N/A',valor:'7.862'},
+            {placa:'9EBL950',marca:'C-MAX',cliente:'MAGDA',valor:'4.092'},
+            {placa:'9FSM487',marca:'C-MAX',cliente:'MARQUINHO',valor:'3.673'},
+            {placa:'9EBL823',marca:'FUSION',cliente:'SAMANTHA',valor:'4.766'},
+            {placa:'9ETZ128',marca:'FUSION',cliente:'MARCELUS',valor:'3.980'},
+            {placa:'PARTS',marca:'MKZ',cliente:'PARTS',valor:'0'},
+            {placa:'9HFY639',marca:'MKZ',cliente:'JOSE',valor:'0'},
+            {placa:'9etz145',marca:'CIVIC',cliente:'MTY',valor:'3.712'},
+            {placa:'8ZBP611',marca:'Outlander',cliente:'KAIO',valor:'1.783'},
+            {placa:'9ETZ258',marca:'Podrao',cliente:'GODOY',valor:'963'},
+            {placa:'PAZOTTO',marca:'BB SMURF',cliente:'JOICE',valor:'12.389'},
+            {placa:'9EAV527',marca:'PT CRUISER',cliente:'GERMAN',valor:'3.547'},
+            {placa:'9DTS338',marca:'VENDIDO',cliente:'GOLF',valor:'1.188'},
+            {placa:'04441M3',marca:'VENDIDO',cliente:'PERERECA',valor:'5.563'},
+            {placa:'8YVE373',marca:'VENDIDO',cliente:'Muriel',valor:'6.000'},
+            {placa:'8YQC095',marca:'PT',cliente:'CARAVAN',valor:'7.100'},
+            {placa:'9DHW428',marca:'PT',cliente:'PECAS',valor:'2.754'}
+        ];
+
+        const imoveisBrasil = [
+            {endereco:'Rua Amazonas, 373 APT 102',cidade:'Sorocaba',tipo:'Apartamento',valor:'345.000',status:'Alugado'},
+            {endereco:'Santo André',cidade:'São Paulo',tipo:'Apartamento',valor:'250.000',status:'Alugado'},
+            {endereco:'São Roque',cidade:'São Roque',tipo:'Sítio',valor:'500.000',status:'Alugado'}
+        ];
+
+        const imoveisEUA = [
+            {endereco:'West Helena',cidade:'Arkansas',tipo:'Propriedade',valor:'150.000',status:'Venda'},
+            {endereco:'Downtown',cidade:'Arkansas',tipo:'Terreno',valor:'75.000',status:'Venda'}
+        ];
+
+        let currentUser = null;
+
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (users[email] && users[email].password === password) {
+                currentUser = users[email];
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboardSection').classList.remove('hidden');
+                document.getElementById('userName').textContent = currentUser.name;
+                loadData();
+            } else {
+                document.getElementById('loginError').textContent = 'Email ou senha inválidos';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        });
+
+        function loadData() {
+            // Aluguel
+            const aluguelList = document.getElementById('aluguelList');
+            aluguelList.innerHTML = aluguelData.map(v => `
+                <div class="item-row">
+                    <div>
+                        <p class="font-semibold text-gray-900">${v.marca}</p>
+                        <p class="text-xs text-gray-500">${v.placa} • ${v.cliente}</p>
+                    </div>
+                    <span class="badge badge-alugado">ALUGADO</span>
+                </div>
+            `).join('');
+
+            // Imóveis Brasil
+            const brasilList = document.getElementById('imoveisBrasil');
+            brasilList.innerHTML = imoveisBrasil.map(p => `
+                <div class="item-row">
+                    <div>
+                        <p class="font-semibold text-gray-900">${p.endereco}</p>
+                        <p class="text-xs text-gray-500">${p.cidade}</p>
+                    </div>
+                    <span class="badge badge-alugado">ALUGADO</span>
+                </div>
+            `).join('');
+
+            // Imóveis EUA
+            const euaList = document.getElementById('imoveisEUA');
+            euaList.innerHTML = imoveisEUA.map(p => `
+                <div class="item-row">
+                    <div>
+                        <p class="font-semibold text-gray-900">${p.endereco}</p>
+                        <p class="text-xs text-gray-500">${p.cidade}</p>
+                    </div>
+                    <span class="badge badge-venda">VENDA</span>
+                </div>
+            `).join('');
+
+            // Venda (simplificado)
+            const vendaList = document.getElementById('vendaList');
+            vendaList.innerHTML = '<p class="text-sm text-gray-600">37 carros cadastrados no sistema</p>';
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            currentUser = null;
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').classList.add('hidden');
+        });
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+                document.getElementById(tab).classList.remove('hidden');
+
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('border-b-2', 'border-yellow-500'));
+                btn.classList.add('border-b-2', 'border-yellow-500');
+            });
+        });
+    </script>
+</body>
+</html>

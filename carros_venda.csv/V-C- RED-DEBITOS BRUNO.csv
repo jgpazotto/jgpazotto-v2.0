@@ -1,0 +1,14 @@
+,Carro ,Placa
+DIA,DESCRIÇAO ,VALOR 
+15 set.,Seguro ,$ 190.00
+15 out.,Seguro ,$ 190.00
+15 set.,Pago ,-$ 380.00
+15 nov.,Seguro ,$ 190.00
+15 dez.,Seguro ,$ 190.00
+15 jan.,Seguro ,$ 190.00
+,Pago Entrada ,-$ 570.00
+15 fev.,Seguro ,$ 190.00
+15 mar.,Seguro ,$ 190.00
+15 abr.,Seguro ,$ 190.00
+15 mai.,Seguro ,$ 190.00
+Saldo Devedor ,,$ 760.00

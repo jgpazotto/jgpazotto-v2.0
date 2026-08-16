@@ -1,0 +1,18 @@
+,Carro ,Placa
+DIA,DESCRIÇAO ,VALOR 
+12 mar.,SEMANA,$ 220.00
+22 mar.,FASTRAK ,$ 182.00
+23 mar.,MULTA ,$ 191.00
+26 mar.,FASTRAK ,$ 176.25
+26 mar.,SEMANA,$ 220.00
+9 abr.,FASTRAK ,$ 8.00
+16 abr.,SEMANA,$ 220.00
+23 abr.,FASTRAK ,$ 23.00
+24 abr.,FASTRAK ,$ 104.00
+27 abr.,FASTRAK ,$ 35.25
+8 mai.,Seguro ,$ 150.00
+23 mai.,FASTRAK ,$ 88.00
+13 mai.,PAGO ,-$ 526.31
+14 mai.,SEMANA,$ 200.00
+14 mai.,PAGO ,-$ 526.31
+Saldo Devedor ,,$ 764.88

@@ -1,0 +1,62 @@
+🚀 DEPLOY DO SITE ATUALIZADO - 3 PASSOS SIMPLES
+
+═══════════════════════════════════════════════════════════
+
+PASSO 1️⃣ - Abra o Terminal (Mac/Linux):
+Command + Spacebar → "Terminal" → Enter
+
+PASSO 2️⃣ - Cole EXATAMENTE esses comandos:
+
+cd ~/Documents/jgpazotto-v2.0
+
+cp login_v2.html login.html
+
+git add login.html consolidado_aluguel.csv consolidado_carros_venda.csv consolidado_imoveis.csv
+
+git commit -m "Atualizar dashboard com dados reais - 30 aluguel, 37 venda, 8 imóveis"
+
+git push origin main
+
+═══════════════════════════════════════════════════════════
+
+PRONTO! ✅ Seu site está ONLINE em:
+👉 https://jgpazotto.com
+
+Acesse com: joice@jgpazotto.com / senha123
+
+═══════════════════════════════════════════════════════════
+
+SE DER ERRO:
+1. Firewall bloqueando? Use GitHub Web:
+   https://github.com/jgpazotto/jgpazotto.github.io
+   → Upload files → Selecione login.html
+
+2. Git pedindo credencial? Use seu Personal Token:
+   Copie do: https://github.com/settings/tokens
+
+3. Erro de permissão? Rode este comando primeiro:
+   git config --global user.name "Joice Pazotto"
+   git config --global user.email "joice@jgpazotto.com"
+
+═══════════════════════════════════════════════════════════
+
+DADOS JÁ INCLUSOS:
+✅ 30 Carros Aluguel (AGOSTO 2023)
+✅ 37 Carros Venda (com filtros)
+✅ 8 Imóveis (Sorocaba, São Paulo, Arkansas)
+✅ 3 Usuários Demo (Joice, Geraldo, Funcionário)
+✅ Sistema de Filtros por Status
+✅ Logo Integrado
+✅ Design Premium
+
+═══════════════════════════════════════════════════════════
+
+PROXIMOS PASSOS:
+1. Testar login no site
+2. Filtrar por "Alugados", "Disponíveis", etc.
+3. Adicionar novas imagens (selo + 7 empresas)
+4. Importador de CSV (amanhã)
+
+═══════════════════════════════════════════════════════════
+
+Dúvida? Chama aqui! 💬
