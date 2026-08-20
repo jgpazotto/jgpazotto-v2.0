@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JG Pazotto - O Legado Continua. Holding integrada de 7 empresas operando no Brasil e EUA.">
+    <meta name="keywords" content="JG Pazotto, Holding, Veículos, Imóveis, Negócios Globais">
+    <meta name="author" content="JG Pazotto">
+    <meta property="og:title" content="JG Pazotto | O Legado Continua">
+    <meta property="og:description" content="7 Empresas Integradas - Brasil & EUA">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://jgpazotto.com">
+
+    <title>JG Pazotto | O Legado Continua - Empresas e Negócios Globais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * {
+            scroll-behavior: smooth;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=Montserrat:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #0f0f0f;
+            color: #1a1a1a;
+        }
+
+        :root {
+            --gold-primary: #d4af37;
+            --gold-light: #e5c158;
+            --bronze: #8b6f47;
+            --dark-blue: #1a3a52;
+            --dark-gray: #2a2a2a;
+            --white-premium: #f5f3f0;
+            --black-premium: #0f0f0f;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Playfair Display', serif;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a3a52 0%, #0f2b42 100%);
+            border-bottom: 2px solid #d4af37;
+            color: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            background-color: rgba(26, 58, 82, 0.95);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-container img {
+            max-height: 120px;
+            width: auto;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #1a3a52 0%, #0f2b42 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            min-height: 700px;
+            margin-top: 80px;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(212, 175, 55, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .section-bg {
+            background: linear-gradient(135deg, #f5f3f0 0%, #e5e5e5 100%);
+            padding: 80px 20px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4af37 0%, #e5c158 100%);
+            color: #0f0f0f;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            letter-spacing: 1px;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #d4af37;
+            padding: 15px 30px;
+            border-radius: 50px;
+            border: 2px solid #d4af37;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 14px;
+            letter-spacing: 1px;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        .whatsapp-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #25d366 0%, #20ba5a 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            text-decoration: none;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+
+        .whatsapp-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 8px 35px rgba(37, 211, 102, 0.6);
+        }
+
+        footer {
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: white;
+            border-top: 2px solid #d4af37;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .timeline-item {
+            padding: 30px;
+            background: white;
+            border-left: 4px solid #d4af37;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .timeline-item h3 {
+            color: #1a3a52;
+            margin-bottom: 10px;
+        }
+
+        .card-empresa {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .card-empresa:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-empresa h3 {
+            color: #1a3a52;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                min-height: 500px;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-down {
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .animate-fade-up {
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero-image img {
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="fixed w-full top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="logo-container">
+                <img src="JG Pazotto.png" alt="JG Pazotto Logo">
+            </div>
+
+            <div class="hidden md:flex gap-8">
+                <a href="#home" class="text-white hover:text-yellow-400 transition font-semibold text-sm">INÍCIO</a>
+                <a href="#historia" class="text-white hover:text-yellow-400 transition font-semibold text-sm">HISTÓRIA</a>
+                <a href="#conquistas" class="text-white hover:text-yellow-400 transition font-semibold text-sm">CONQUISTAS</a>
+                <a href="#empresas" class="text-white hover:text-yellow-400 transition font-semibold text-sm">EMPRESAS</a>
+                <a href="#presenca" class="text-white hover:text-yellow-400 transition font-semibold text-sm">PRESENÇA</a>
+                <a href="#contato" class="text-white hover:text-yellow-400 transition font-semibold text-sm">CONTATO</a>
+            </div>
+
+            <a href="https://wa.me/19546016730?text=Olá%20JG%20Pazotto%20-%20Gostaria%20de%20informações" target="_blank" class="hidden md:flex btn-primary text-sm">
+            <a href="dashboard-v3.5.html" class="hidden md:flex btn-primary text-sm">
+                <i class="fas fa-chart-line"></i> DASHBOARD
+            </a>
+                <i class="fab fa-whatsapp"></i> CONTATO
+            </a>
+
+            <button class="md:hidden text-white text-2xl" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero-section pt-20">
+        <div class="max-w-7xl mx-auto px-6 w-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div class="hero-text">
+                    <h1 class="text-5xl font-900 mb-4 animate-fade-down">
+                        O Legado
+                        <span class="text-yellow-400">Continua</span>
+                    </h1>
+                    <p class="text-yellow-400 text-2xl font-600 mb-6 animate-fade-up">Força. Tradição. Inovação Global.</p>
+                    <p class="text-gray-300 text-lg mb-8 animate-fade-up leading-relaxed">
+                        JG Pazotto conecta sete pilares de negócio estratégicos que operam com excelência nos mercados do Brasil e Estados Unidos.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button class="btn-primary" onclick="document.getElementById('empresas').scrollIntoView();">
+                            <i class="fas fa-arrow-down"></i> EXPLORE NOSSAS EMPRESAS
+                        </button>
+                        <a href="https://wa.me/19546016730?text=Gostaria%20de%20conhecer%20mais%20sobre%20JG%20Pazotto" target="_blank" class="btn-secondary">
+                            <i class="fab fa-whatsapp"></i> FALE CONOSCO
+                        </a>
+                    </div>
+                </div>
+
+                <div class="hidden md:flex justify-center items-center hero-image">
+                    <img src="Moeda JG.png" alt="JG Pazotto - O Legado Continua" style="max-width: 700px; width: 100%; margin: 30px auto; display: block;">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Nossa História -->
+    <section id="historia" class="section-bg">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="section-title text-center text-black mb-12">Nossa História</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h3 class="text-3xl font-bold text-black mb-6">O Legado de Duas Famílias</h3>
+                    <p class="text-lg text-gray-700 mb-6 leading-relaxed">
+                        JG Pazotto é mais que uma holding empresarial — é a celebração do legado do casal Geraldo e Joice.
+                    </p>
+                    <p class="text-lg text-gray-700 mb-6 leading-relaxed">
+                        <strong>"O Legado Continua"</strong> é uma homenagem sincera à família de Geraldo, que moldou seus valores de força, trabalho e tradição. Mas também é uma expressão do amor e dedicação de Joice, que traz consigo a riqueza de sua própria história familiar, carregada com o coração em cada empreendimento.
+                    </p>
+                    <p class="text-lg text-gray-700 leading-relaxed">
+                        Juntos, eles construíram não apenas empresas, mas um patrimônio que reflete a união de duas famílias, a paixão pelo trabalho bem feito e a crença de que negócios familiares prosperam quando guiados por integridade, respeito e amor genuíno.
+                    </p>
+                </div>
+
+                <div class="bg-white p-8 rounded-lg shadow-lg">
+                    <h4 class="text-2xl font-bold text-black mb-6">Pilares da Empresa</h4>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <span class="text-yellow-600 font-bold mr-4">✓</span>
+                            <span class="text-gray-700"><strong>Tradição:</strong> Honrando as raízes e os valores que nos construíram</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-yellow-600 font-bold mr-4">✓</span>
+                            <span class="text-gray-700"><strong>Excelência:</strong> Operações de alto padrão internacional</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-yellow-600 font-bold mr-4">✓</span>
+                            <span class="text-gray-700"><strong>Inovação:</strong> Adaptação e crescimento contínuo</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-yellow-600 font-bold mr-4">✓</span>
+                            <span class="text-gray-700"><strong>Família:</strong> Negócios que fortalecem laços humanos</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-yellow-600 font-bold mr-4">✓</span>
+                            <span class="text-gray-700"><strong>Global:</strong> Presença em Brasil e Estados Unidos</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Histórico de Conquistas -->
+    <section id="conquistas" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="section-title text-center text-black mb-16">Histórico de Conquistas</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="timeline-item">
+                    <h3>2010 - Fundação</h3>
+                    <p class="text-gray-600">Início da jornada com visão de integrar diferentes segmentos de negócios, criando uma holding forte e unificada.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <h3>2014 - Expansão</h3>
+                    <p class="text-gray-600">Aquisição das primeiras empresas satélites, consolidando a presença em múltiplos segmentos do mercado.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <h3>2018 - Diversificação</h3>
+                    <p class="text-gray-600">Inauguração de operações internacionais nos Estados Unidos, expandindo horizontes de negócios.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <h3>2020 - Resiliência</h3>
+                    <p class="text-gray-600">Mantemos solidez e lucratividade durante desafios globais, demonstrando a força de nossa estrutura.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <h3>2023 - Consolidação</h3>
+                    <p class="text-gray-600">Integração digital e modernização de processos, preparando o grupo para o futuro.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <h3>2026 - Legado Digital</h3>
+                    <p class="text-gray-600">Reafirmação de valores familiares com presença renovada no mercado digital global.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Nossas Empresas -->
+    <section id="empresas" class="py-20 bg-gray-100">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="section-title text-center text-black mb-16">Nossas Empresas</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="card-empresa">
+                    <i class="fas fa-car text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Veículos e Mobilidade</h3>
+                    <p class="text-gray-600">Soluções inovadoras em transporte e mobilidade urbana</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-building text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Imóveis Premium</h3>
+                    <p class="text-gray-600">Investimentos em propriedades de alto padrão</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-chart-line text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Consultoria Empresarial</h3>
+                    <p class="text-gray-600">Estratégia e gestão para empresas em crescimento</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-globe text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Negócios Internacionais</h3>
+                    <p class="text-gray-600">Operações e parcerias nos EUA e Brasil</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-industry text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Manufatura</h3>
+                    <p class="text-gray-600">Produção industrial de alta qualidade</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-handshake text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Parcerias Estratégicas</h3>
+                    <p class="text-gray-600">Redes de negócios e joint ventures internacionais</p>
+                </div>
+
+                <div class="card-empresa">
+                    <i class="fas fa-star text-4xl text-yellow-600 mb-4"></i>
+                    <h3>Gestão de Patrimonial</h3>
+                    <p class="text-gray-600">Administração profissional de ativos</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Presença Global -->
+    <section id="presenca" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="section-title text-center text-black mb-12">Nossa Presença Global</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div class="p-8 bg-gradient-to-r from-green-100 to-green-50 rounded-lg border-2 border-green-300">
+                    <h3 class="text-3xl font-bold text-green-800 mb-6">🇧🇷 Brasil</h3>
+                    <ul class="space-y-3 text-gray-700">
+                        <li><strong>Operações em:</strong> São Paulo, Rio de Janeiro, Minas Gerais</li>
+                        <li><strong>Setores:</strong> Veículos, Imóveis, Consultoria</li>
+                        <li><strong>Colaboradores:</strong> Mais de 150 profissionais</li>
+                        <li><strong>Foco:</strong> Crescimento sustentável e inovação local</li>
+                    </ul>
+                </div>
+
+                <div class="p-8 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg border-2 border-blue-300">
+                    <h3 class="text-3xl font-bold text-blue-800 mb-6">🇺🇸 Estados Unidos</h3>
+                    <ul class="space-y-3 text-gray-700">
+                        <li><strong>Operações em:</strong> Miami, New York, Los Angeles</li>
+                        <li><strong>Setores:</strong> Negócios Internacionais, Parcerias Estratégicas</li>
+                        <li><strong>Colaboradores:</strong> Mais de 80 profissionais</li>
+                        <li><strong>Foco:</strong> Expansão norte-americana e mercado Latino</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="contato">
+        <div class="max-w-7xl mx-auto">
+            <h3 class="text-2xl font-bold mb-6">Entre em Contato</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                <div>
+                    <h4 class="text-yellow-400 font-bold mb-3">📞 Telefone</h4>
+                    <p>+1(954)601-6730</p>
+                </div>
+                <div>
+                    <h4 class="text-yellow-400 font-bold mb-3">📧 Email</h4>
+                    <p>contato@jgpazotto.com</p>
+                </div>
+                <div>
+                    <h4 class="text-yellow-400 font-bold mb-3">💬 WhatsApp</h4>
+                    <p><a href="https://wa.me/19546016730" target="_blank" class="hover:text-yellow-300">Clique aqui para conversar</a></p>
+                </div>
+            </div>
+            <hr class="border-yellow-600 mb-6">
+            <p>&copy; 2026 JG Pazotto - O Legado Continua. Todos os direitos reservados.</p>
+            <p>Brasil & Estados Unidos | Força. Tradição. Inovação Global.</p>
+        </div>
+    </footer>
+
+    <a href="https://wa.me/19546016730?text=Olá%20JG%20Pazotto" target="_blank" class="whatsapp-btn">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script>
+        // Menu mobile
+        const menuToggle = document.getElementById('menuToggle');
+        const nav = document.querySelector('nav');
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                nav.classList.toggle('open');
+            });
+        }
+    </script>
+</body>
+</html>
