@@ -300,38 +300,58 @@
             <h2 id="clienteModalTitle">Novo Cliente</h2>
             <button class="modal-close" onclick="closeModal('clienteModal')">✕</button>
         </div>
-        <div class="form-group">
-            <label>Nome *</label>
-            <input type="text" id="cli-nome" placeholder="Nome completo">
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'cli-info')">ℹ️ Informações</button>
+            <button class="tab-btn" onclick="switchTab(event, 'cli-fotos')">📷 Fotos/Docs</button>
         </div>
-        <div class="form-group">
-            <label>CPF</label>
-            <input type="text" id="cli-cpf" placeholder="000.000.000-00">
+
+        <!-- TAB INFORMAÇÕES -->
+        <div id="cli-info" class="tab-content active">
+            <div class="form-group">
+                <label>Nome *</label>
+                <input type="text" id="cli-nome" placeholder="Nome completo">
+            </div>
+            <div class="form-group">
+                <label>CPF</label>
+                <input type="text" id="cli-cpf" placeholder="000.000.000-00">
+            </div>
+            <div class="form-group">
+                <label>Telefone</label>
+                <input type="tel" id="cli-tel" placeholder="(11) 9XXXX-XXXX">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="cli-email" placeholder="email@example.com">
+            </div>
+            <div class="form-group">
+                <label>Data de Nascimento</label>
+                <input type="date" id="cli-datanasc">
+            </div>
+            <div class="form-group">
+                <label>Endereço</label>
+                <input type="text" id="cli-endereco" placeholder="Endereço completo">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="cli-status">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                    <option value="Suspenso">Suspenso</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Telefone</label>
-            <input type="tel" id="cli-tel" placeholder="(11) 9XXXX-XXXX">
+
+        <!-- TAB FOTOS/DOCUMENTOS -->
+        <div id="cli-fotos" class="tab-content">
+            <div class="photo-drop-zone" ondrop="handlePhotoDrop(event, 'cli-fotos-input', 'cli-foto-gallery')" ondragover="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" onclick="document.getElementById('cli-fotos-input').click()">
+                <p>📸 Arraste documentos/fotos aqui ou clique para selecionar</p>
+                <p style="font-size: 12px; color: #999;">CPF, RG, Comprovante de renda, Foto, etc</p>
+            </div>
+            <input type="file" id="cli-fotos-input" style="display: none;" multiple accept="image/*" onchange="handlePhotoSelect(event, 'cli-foto-gallery')">
+            <div class="photo-gallery" id="cli-foto-gallery"></div>
         </div>
-        <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="cli-email" placeholder="email@example.com">
-        </div>
-        <div class="form-group">
-            <label>Data de Nascimento</label>
-            <input type="date" id="cli-datanasc">
-        </div>
-        <div class="form-group">
-            <label>Endereço</label>
-            <input type="text" id="cli-endereco" placeholder="Endereço completo">
-        </div>
-        <div class="form-group">
-            <label>Status</label>
-            <select id="cli-status">
-                <option value="Ativo">Ativo</option>
-                <option value="Inativo">Inativo</option>
-                <option value="Suspenso">Suspenso</option>
-            </select>
-        </div>
+
         <button class="btn" onclick="saveCliente()">💾 Salvar Cliente</button>
     </div>
 </div>
@@ -562,46 +582,89 @@
             <h2 id="aluguelModalTitle">Novo Aluguel</h2>
             <button class="modal-close" onclick="closeModal('aluguelModal')">✕</button>
         </div>
-        <div class="form-group">
-            <label>Placa do Carro *</label>
-            <input type="text" id="alug-placa" placeholder="XXX-0000">
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'alug-info')">ℹ️ Informações</button>
+            <button class="tab-btn" onclick="switchTab(event, 'alug-vistoria')">📸 Vistoria (Antes/Depois)</button>
+            <button class="tab-btn" onclick="switchTab(event, 'alug-contrato')">📄 Contrato</button>
         </div>
-        <div class="form-group">
-            <label>Data Retirada *</label>
-            <input type="datetime-local" id="alug-retirada">
+
+        <!-- TAB INFORMAÇÕES -->
+        <div id="alug-info" class="tab-content active">
+            <div class="form-group">
+                <label>Placa do Carro *</label>
+                <input type="text" id="alug-placa" placeholder="XXX-0000">
+            </div>
+            <div class="form-group">
+                <label>Data Retirada *</label>
+                <input type="datetime-local" id="alug-retirada">
+            </div>
+            <div class="form-group">
+                <label>Data Devolução *</label>
+                <input type="datetime-local" id="alug-devolucao">
+            </div>
+            <div class="form-group">
+                <label>Valor Diária</label>
+                <input type="number" id="alug-valor" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="alug-status">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Finalizado">Finalizado</option>
+                    <option value="Cancelado">Cancelado</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Multas</label>
+                <input type="number" id="alug-multas" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Pedágios</label>
+                <input type="number" id="alug-pedagios" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Combustível</label>
+                <input type="number" id="alug-comb" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Estacionamento</label>
+                <input type="number" id="alug-estac" placeholder="0.00" step="0.01">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Data Devolução *</label>
-            <input type="datetime-local" id="alug-devolucao">
+
+        <!-- TAB VISTORIA -->
+        <div id="alug-vistoria" class="tab-content">
+            <h4 style="margin-bottom: 15px;">📸 Fotos de Vistoria</h4>
+            <div class="form-group">
+                <label><strong>Fotos da Entrega (Como o cliente pegou)</strong></label>
+            </div>
+            <div class="photo-drop-zone" ondrop="handlePhotoDrop(event, 'alug-entrega-input', 'alug-entrega-gallery')" ondragover="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" onclick="document.getElementById('alug-entrega-input').click()">
+                <p>📸 Fotos do estado do veículo na entrega</p>
+            </div>
+            <input type="file" id="alug-entrega-input" style="display: none;" multiple accept="image/*" onchange="handlePhotoSelect(event, 'alug-entrega-gallery')">
+            <div class="photo-gallery" id="alug-entrega-gallery"></div>
+
+            <div class="form-group" style="margin-top: 30px;">
+                <label><strong>Fotos da Devolução (Como o cliente devolveu)</strong></label>
+            </div>
+            <div class="photo-drop-zone" ondrop="handlePhotoDrop(event, 'alug-devolucao-input', 'alug-devolucao-gallery')" ondragover="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" onclick="document.getElementById('alug-devolucao-input').click()">
+                <p>📸 Fotos do estado do veículo na devolução</p>
+            </div>
+            <input type="file" id="alug-devolucao-input" style="display: none;" multiple accept="image/*" onchange="handlePhotoSelect(event, 'alug-devolucao-gallery')">
+            <div class="photo-gallery" id="alug-devolucao-gallery"></div>
         </div>
-        <div class="form-group">
-            <label>Valor Diária</label>
-            <input type="number" id="alug-valor" placeholder="0.00" step="0.01">
+
+        <!-- TAB CONTRATO -->
+        <div id="alug-contrato" class="tab-content">
+            <h4 style="margin-bottom: 15px;">📄 Contrato Assinado</h4>
+            <div class="photo-drop-zone" ondrop="handlePhotoDrop(event, 'alug-contrato-input', 'alug-contrato-gallery')" ondragover="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" onclick="document.getElementById('alug-contrato-input').click()">
+                <p>📄 Arraste o contrato assinado (PDF ou foto)</p>
+            </div>
+            <input type="file" id="alug-contrato-input" style="display: none;" multiple accept="image/*,.pdf" onchange="handlePhotoSelect(event, 'alug-contrato-gallery')">
+            <div class="photo-gallery" id="alug-contrato-gallery"></div>
         </div>
-        <div class="form-group">
-            <label>Status</label>
-            <select id="alug-status">
-                <option value="Ativo">Ativo</option>
-                <option value="Finalizado">Finalizado</option>
-                <option value="Cancelado">Cancelado</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Multas</label>
-            <input type="number" id="alug-multas" placeholder="0.00" step="0.01">
-        </div>
-        <div class="form-group">
-            <label>Pedágios</label>
-            <input type="number" id="alug-pedagios" placeholder="0.00" step="0.01">
-        </div>
-        <div class="form-group">
-            <label>Combustível</label>
-            <input type="number" id="alug-comb" placeholder="0.00" step="0.01">
-        </div>
-        <div class="form-group">
-            <label>Estacionamento</label>
-            <input type="number" id="alug-estac" placeholder="0.00" step="0.01">
-        </div>
+
         <button class="btn" onclick="saveAluguel()">💾 Salvar Aluguel</button>
     </div>
 </div>
@@ -971,7 +1034,7 @@
         editingId = id;
         editingType = 'cliente';
         const modal = document.getElementById('clienteModal');
-        
+
         if (id) {
             const cliente = database.clientes.find(c => c.id === id);
             if (cliente) {
@@ -983,11 +1046,28 @@
                 document.getElementById('cli-datanasc').value = cliente.datanasc || '';
                 document.getElementById('cli-endereco').value = cliente.endereco || '';
                 document.getElementById('cli-status').value = cliente.status || 'Ativo';
+
+                // Carregar fotos
+                if (cliente.fotos && cliente.fotos.length > 0) {
+                    const gallery = document.getElementById('cli-foto-gallery');
+                    gallery.innerHTML = '';
+                    cliente.fotos.forEach((foto, idx) => {
+                        gallery.innerHTML += `<div class="photo-item"><img src="${foto}" /><button class="photo-remove" onclick="removePhoto('cli-foto-gallery', ${idx})">✕</button></div>`;
+                    });
+                }
             }
         } else {
             document.getElementById('clienteModalTitle').textContent = '➕ Novo Cliente';
             clearModalInputs(modal);
+            document.getElementById('cli-foto-gallery').innerHTML = '';
         }
+
+        // Reset tabs para a aba de informações
+        document.querySelectorAll('#clienteModal .tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#clienteModal .tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('cli-info').classList.add('active');
+        document.querySelector('#clienteModal .tab-btn').classList.add('active');
+
         modal.classList.add('active');
     }
 
@@ -1004,7 +1084,8 @@
                 email: document.getElementById('cli-email').value || '',
                 datanasc: document.getElementById('cli-datanasc').value || '',
                 endereco: document.getElementById('cli-endereco').value || '',
-                status: document.getElementById('cli-status').value || 'Ativo'
+                status: document.getElementById('cli-status').value || 'Ativo',
+                fotos: Array.from(document.querySelectorAll('#cli-foto-gallery img')).map(img => img.src) || []
             };
 
             if (editingId) {
@@ -1473,7 +1554,7 @@
         editingId = id;
         editingType = 'aluguel';
         const modal = document.getElementById('aluguelModal');
-        
+
         if (id) {
             const alug = database.aluguel.find(a => a.id === id);
             if (alug) {
@@ -1487,11 +1568,48 @@
                 document.getElementById('alug-pedagios').value = alug.pedagios || '';
                 document.getElementById('alug-comb').value = alug.comb || '';
                 document.getElementById('alug-estac').value = alug.estac || '';
+
+                // Carregar fotos de entrega
+                if (alug.fotos_entrega && alug.fotos_entrega.length > 0) {
+                    const gallery = document.getElementById('alug-entrega-gallery');
+                    gallery.innerHTML = '';
+                    alug.fotos_entrega.forEach((foto, idx) => {
+                        gallery.innerHTML += `<div class="photo-item"><img src="${foto}" /><button class="photo-remove" onclick="removePhoto('alug-entrega-gallery', ${idx})">✕</button></div>`;
+                    });
+                }
+
+                // Carregar fotos de devolução
+                if (alug.fotos_devolucao && alug.fotos_devolucao.length > 0) {
+                    const gallery = document.getElementById('alug-devolucao-gallery');
+                    gallery.innerHTML = '';
+                    alug.fotos_devolucao.forEach((foto, idx) => {
+                        gallery.innerHTML += `<div class="photo-item"><img src="${foto}" /><button class="photo-remove" onclick="removePhoto('alug-devolucao-gallery', ${idx})">✕</button></div>`;
+                    });
+                }
+
+                // Carregar contrato
+                if (alug.contrato && alug.contrato.length > 0) {
+                    const gallery = document.getElementById('alug-contrato-gallery');
+                    gallery.innerHTML = '';
+                    alug.contrato.forEach((arquivo, idx) => {
+                        gallery.innerHTML += `<div class="photo-item"><img src="${arquivo}" /><button class="photo-remove" onclick="removePhoto('alug-contrato-gallery', ${idx})">✕</button></div>`;
+                    });
+                }
             }
         } else {
             document.getElementById('aluguelModalTitle').textContent = '➕ Novo Aluguel';
             clearModalInputs(modal);
+            document.getElementById('alug-entrega-gallery').innerHTML = '';
+            document.getElementById('alug-devolucao-gallery').innerHTML = '';
+            document.getElementById('alug-contrato-gallery').innerHTML = '';
         }
+
+        // Reset tabs para a aba de informações
+        document.querySelectorAll('#aluguelModal .tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#aluguelModal .tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('alug-info').classList.add('active');
+        document.querySelector('#aluguelModal .tab-btn').classList.add('active');
+
         modal.classList.add('active');
     }
 
@@ -1512,7 +1630,10 @@
                 multas: parseFloat(document.getElementById('alug-multas').value || 0),
                 pedagios: parseFloat(document.getElementById('alug-pedagios').value || 0),
                 comb: parseFloat(document.getElementById('alug-comb').value || 0),
-                estac: parseFloat(document.getElementById('alug-estac').value || 0)
+                estac: parseFloat(document.getElementById('alug-estac').value || 0),
+                fotos_entrega: Array.from(document.querySelectorAll('#alug-entrega-gallery img')).map(img => img.src) || [],
+                fotos_devolucao: Array.from(document.querySelectorAll('#alug-devolucao-gallery img')).map(img => img.src) || [],
+                contrato: Array.from(document.querySelectorAll('#alug-contrato-gallery img')).map(img => img.src) || []
             };
 
             if (editingId) {
@@ -1895,6 +2016,14 @@
                 reader.readAsDataURL(file);
             }
         });
+    }
+
+    function removePhoto(galleryId, idx) {
+        const gallery = document.getElementById(galleryId);
+        const items = gallery.querySelectorAll('.photo-item');
+        if (items[idx]) {
+            items[idx].remove();
+        }
     }
 
     // ===== MODAIS =====
