@@ -910,6 +910,13 @@
             }
         }
         ensureDbProperties();
+
+        // Se a lista de carros estiver vazia, carrega a frota da planilha de outubro/2024.
+        // Nunca sobrescreve carros ja cadastrados.
+        if (!database.carros || database.carros.length === 0) {
+            database.carros = JSON.parse(JSON.stringify(CARROS_OUTUBRO));
+            saveData();
+        }
     }
 
     function initializeDefaultDatabase() {
