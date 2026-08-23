@@ -141,6 +141,11 @@
         .filtro-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .filtro-bar button { padding: 7px 14px; border: 1px solid var(--border); background: #fff; border-radius: 20px; cursor: pointer; font-size: 13px; }
         .filtro-bar button.on { background: var(--secondary); color: #fff; border-color: var(--secondary); }
+
+        .aviso-pend { background: #fff8f2; border: 1px solid #f0d6bd; border-radius: 6px; padding: 10px 13px; margin-bottom: 14px; font-size: 13px; color: #8a5a2b; }
+        .aviso-pend b { color: #6b4520; }
+        .falta-carne { color: var(--danger); font-weight: bold; }
+        .sem-placa { color: #c0392b; font-style: italic; }
         .view-modal-content { background: #f9f9f9; }
         .view-section { margin-bottom: 20px; padding: 15px; background: white; border-radius: 5px; border-left: 4px solid var(--secondary); }
         .view-section h4 { color: var(--primary); margin-bottom: 10px; font-size: 14px; }
@@ -266,9 +271,11 @@
                 <div class="section">
                     <h3>🚗 Carros para Venda/Locação</h3>
                     <button class="btn" onclick="openCarroModal()">➕ Novo Carro</button>
-                    <input type="search" id="searchCarros" placeholder="🔍 Buscar por placa..." onkeyup="filterTable('tableCarros', 0)">
+                    <input type="search" id="searchCarros" placeholder="🔍 Buscar por placa, modelo, cor ou cliente..." onkeyup="displayCarros()">
+                    <div id="avisos-frota"></div>
+                    <div class="filtro-bar" id="filtro-carros"></div>
                     <table id="tableCarros">
-                        <thead><tr><th>Placa</th><th>Carro</th><th>Ano</th><th>Cor</th><th>Cliente</th><th>Gastos</th><th>Recebidos</th><th>Saldo</th><th>Status</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Placa</th><th>Carro</th><th>Ano</th><th>Cor</th><th>Cliente</th><th>Gastos</th><th>Recebidos</th><th>Saldo</th><th>Falta no carnê</th><th>Status</th><th>Ações</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -1520,26 +1527,104 @@
         }
     }
 
+    // ===== LISTA DE CARROS: filtros, busca e avisos =====
+    let filtroFrota = 'ativos';
+
+    // Grupos de status. "ativos" = o que ainda esta com voces.
+    const GRUPOS = {
+        ativos:   {nome: '🚗 Comigo hoje',   testa: s => ['ALUGADO','GARAGEM','OFICINA','PARCELA','TX'].includes(s)},
+        alugados: {nome: '🔑 Alugados',      testa: s => s === 'ALUGADO'},
+        carne:    {nome: '💰 No carnê',      testa: s => s === 'PARCELA'},
+        garagem:  {nome: '🅿️ Garagem',       testa: s => s === 'GARAGEM'},
+        oficina:  {nome: '🔧 Oficina',       testa: s => s === 'OFICINA'},
+        vendidos: {nome: '✅ Vendidos',      testa: s => s === 'VENDIDO'},
+        pt:       {nome: '💥 Perda total',   testa: s => s === 'PT'},
+        saiu:     {nome: '📦 Saiu da frota', testa: s => ['VENDIDO','PT','SAIU'].includes(s)},
+        todos:    {nome: '📋 Todos',         testa: () => true},
+    };
+
+    function faltaNoCarne(c) {
+        if (!c.carnes || !c.carnes.length) return 0;
+        let total = 0, receb = 0;
+        c.carnes.forEach(k => (k.parcelas || []).forEach(p => {
+            total += Number(p.valor) || 0;
+            receb += liquidoDe(p, k);
+        }));
+        if (Number(c.valorVenda) > 0) total = Number(c.valorVenda);
+        const f = total - receb;
+        return f > 0.5 ? f : 0;
+    }
+
+    function filtrarFrota(f) { filtroFrota = f; displayCarros(); }
+
+    function renderFiltrosFrota() {
+        const el = document.getElementById('filtro-carros');
+        if (!el) return;
+        el.innerHTML = Object.entries(GRUPOS).map(([k, g]) => {
+            const n = (database.carros || []).filter(c => g.testa((c.status || '').toUpperCase())).length;
+            return `<button class="${filtroFrota === k ? 'on' : ''}" onclick="filtrarFrota('${k}')">${g.nome} <strong>${n}</strong></button>`;
+        }).join('');
+    }
+
+    function renderAvisosFrota() {
+        const el = document.getElementById('avisos-frota');
+        if (!el) return;
+        const cs = database.carros || [];
+        const semPlaca = cs.filter(c => !c.placa).length;
+        const semNome = cs.filter(c => (c.carnes || []).some(k => !k.cliente || k.cliente.trim().toUpperCase() === 'NOME')).length;
+        const partes = [];
+        if (semPlaca) partes.push(`<b>${semPlaca}</b> carro${semPlaca > 1 ? 's' : ''} sem placa`);
+        if (semNome) partes.push(`<b>${semNome}</b> carnê${semNome > 1 ? 's' : ''} sem o nome do cliente`);
+        el.innerHTML = partes.length
+            ? `<div class="aviso-pend">📝 Falta preencher: ${partes.join(' · ')}. Abra o carro e complete quando puder.</div>`
+            : '';
+    }
+
     function displayCarros() {
         const tbody = document.querySelector('#tableCarros tbody');
+        if (!tbody) return;
+        renderFiltrosFrota();
+        renderAvisosFrota();
+
+        const busca = (document.getElementById('searchCarros')?.value || '').trim().toUpperCase();
+        const grupo = GRUPOS[filtroFrota] || GRUPOS.todos;
+
+        let lista = (database.carros || []).filter(c => grupo.testa((c.status || '').toUpperCase()));
+        if (busca) {
+            lista = lista.filter(c => {
+                const clientes = (c.carnes || []).map(k => k.cliente).join(' ');
+                return [c.placa, c.marca, c.ano, c.cor, c.clienteAtual, clientes, c.vin]
+                    .join(' ').toUpperCase().includes(busca);
+            });
+        }
+        // maior dívida primeiro, depois por modelo
+        lista.sort((a, b) => faltaNoCarne(b) - faltaNoCarne(a) || (a.marca || '').localeCompare(b.marca || ''));
+
         tbody.innerHTML = '';
-        if (!database.carros.length) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Nenhum carro</td></tr>';
+        if (!lista.length) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:26px;color:#7b8794;">Nenhum carro nesse filtro</td></tr>';
             return;
         }
-        database.carros.forEach((c, idx) => {
+        lista.forEach(c => {
+            const idx = database.carros.indexOf(c);
             const g = Number(c.totalGastos) || 0, r = Number(c.totalRecebidos) || 0;
-            const s = r - g;
-            const badge = c.status === 'ALUGADO' ? 'badge-success' : (c.status === 'OFICINA' ? 'badge-danger' : 'badge-warning');
+            const s = r - g, falta = faltaNoCarne(c);
+            const st = (c.status || '').toUpperCase();
+            const badge = st === 'ALUGADO' ? 'badge-success'
+                        : st === 'PARCELA' ? 'badge-warning'
+                        : st === 'VENDIDO' ? 'badge-pago'
+                        : (st === 'OFICINA' || st === 'PT') ? 'badge-danger' : 'badge-aberto';
+            const cliente = c.clienteAtual || (c.carnes && c.carnes[0] && c.carnes[0].cliente) || '-';
             tbody.innerHTML += `<tr>
-                <td><strong>${c.placa || '-'}</strong></td>
+                <td>${c.placa ? '<strong>' + c.placa + '</strong>' : '<span class="sem-placa">sem placa</span>'}</td>
                 <td>${c.marca || ''}</td>
                 <td>${c.ano || ''}</td>
                 <td>${c.cor || ''}</td>
-                <td>${c.clienteAtual || '-'}</td>
+                <td>${cliente}</td>
                 <td>${fmt(g)}</td>
                 <td>${fmt(r)}</td>
                 <td class="${s < 0 ? 'val-neg' : 'val-pos'}"><strong>${fmt(s)}</strong></td>
+                <td>${falta ? '<span class="falta-carne">' + fmt(falta) + '</span>' : '—'}</td>
                 <td><span class="badge ${badge}">${c.status || ''}</span></td>
                 <td>
                     <button class="btn btn-view btn-small" onclick="viewCarro(${c.id})">👁️</button>
