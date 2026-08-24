@@ -563,20 +563,37 @@
         var mapa = {ano:'Ano', km:'Quilometragem', quilometragem:'Quilometragem', cambio:'Câmbio',
                     combustivel:'Combustível', cor:'Cor', motor:'Motor', placa:'Placa', marca:'Marca',
                     modelo:'Modelo', quartos:'Quartos', banheiros:'Banheiros', vagas:'Vagas',
-                    area:'Área', area_m2:'Área', metragem:'Área', condominio:'Condomínio', iptu:'IPTU'};
+                    area:'Área', area_m2:'Área', metragem:'Área', condominio:'Condomínio', iptu:'IPTU', iptu_mes:'IPTU por mês',
+                    mobiliado:'Mobiliado', aceita_pet:'Aceita pet', unidades:'Unidades',
+                    destaque:'Destaque', local:'Localização'};
         if (mapa[k]) return mapa[k];
         return k.replace(/_/g, ' ').replace(/^./, function (c) { return c.toUpperCase(); });
     }
 
+    function valor(k, v, moeda) {
+        if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
+        var n = typeof v === 'number' ? v : Number(v);
+        var num = isFinite(n) && String(v).trim() !== '';
+        if (!num) return v;
+        if (k === 'km' || k === 'quilometragem') return n.toLocaleString('pt-BR') + ' km';
+        if (k === 'area_m2' || k === 'area' || k === 'metragem') return n.toLocaleString('pt-BR') + ' m²';
+        if (k === 'condominio' || k === 'iptu_mes' || k === 'iptu') return dinheiro(n, moeda);
+        if (k === 'unidades') return n + (n > 1 ? ' unidades' : ' unidade');
+        if (k === 'quartos') return n + (n > 1 ? ' quartos' : ' quarto');
+        if (k === 'banheiros') return n + (n > 1 ? ' banheiros' : ' banheiro');
+        if (k === 'vagas') return n + (n > 1 ? ' vagas' : ' vaga');
+        return v;
+    }
+
     function extras(item) {
+        var moeda = pega(item, 'moeda', 'currency');
         var out = [];
         for (var k in item) {
             if (!item.hasOwnProperty(k)) continue;
             if (JA_USADOS.indexOf(k) >= 0) continue;
             var v = item[k];
             if (v === null || v === '' || typeof v === 'object') continue;
-            if (typeof v === 'boolean') v = v ? 'Sim' : 'Não';
-            out.push([rotulo(k), v]);
+            out.push([rotulo(k), valor(k, v, moeda)]);
         }
         return out;
     }
