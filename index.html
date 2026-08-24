@@ -311,6 +311,26 @@
             display: block;
         }
 
+        /* porta discreta para o sistema interno */
+        .porta-interna {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            margin-top: 18px;
+            border-radius: 50%;
+            color: rgba(255, 255, 255, 0.16);
+            transition: all 0.3s ease;
+        }
+
+        .porta-interna:hover,
+        .porta-interna:focus-visible {
+            color: #d4af37;
+            background: rgba(212, 175, 55, 0.12);
+            outline: none;
+        }
+
         .foto-carro img {
             width: 100%;
             aspect-ratio: 16 / 10;
@@ -425,8 +445,12 @@
                 </div>
 
                 <div class="flex justify-center items-center hero-image">
-                    <img src="imagens/moeda-jg.png" alt="Brasão JG Pazotto — O Legado Continua"
-                         style="max-width:440px;width:100%;margin:20px auto;display:block;">
+                    <picture>
+                        <source srcset="imagens/moeda-jg.webp" type="image/webp">
+                        <img src="imagens/moeda-jg.png" alt="Brasão JG Pazotto — O Legado Continua"
+                             width="1000" height="1001"
+                             style="max-width:440px;width:100%;height:auto;margin:20px auto;display:block;">
+                    </picture>
                 </div>
             </div>
         </div>
@@ -706,6 +730,14 @@
             <hr class="border-yellow-800 mb-8">
             <p class="assinatura mb-3">Geraldo &amp; Joice Pazotto</p>
             <p class="text-gray-500 text-sm">&copy; 2026 JG Pazotto — O Legado Continua · Brasil e Estados Unidos</p>
+
+            <a href="dashboard-v3.5.html" class="porta-interna" title="Área interna" aria-label="Área interna">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"
+                     fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="10.5" width="16" height="10.5" rx="2.2"/>
+                    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+                </svg>
+            </a>
         </div>
     </footer>
 
