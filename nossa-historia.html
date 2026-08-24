@@ -331,6 +331,54 @@
             outline: none;
         }
 
+        /* ---- vitrine de anuncios ---- */
+        .filtros { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:48px; }
+        .filtro { background:#fff; border:2px solid #e3e8ee; color:#4b5563; border-radius:50px;
+                  padding:10px 22px; font-size:14px; font-weight:600; cursor:pointer; transition:all .25s; }
+        .filtro:hover { border-color:#d4af37; color:#14324a; }
+        .filtro.ativo { background:#14324a; border-color:#14324a; color:#fff; }
+        .grade-anuncios { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:30px; }
+        .anuncio { background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.09);
+                   transition:transform .3s, box-shadow .3s; cursor:pointer; display:flex; flex-direction:column; }
+        .anuncio:hover { transform:translateY(-6px); box-shadow:0 14px 40px rgba(0,0,0,.16); }
+        .anuncio .capa { position:relative; aspect-ratio:4/3; background:#122c44; overflow:hidden; }
+        .anuncio .capa img { width:100%; height:100%; object-fit:cover; display:block; }
+        .anuncio .capa .semfoto { display:flex; align-items:center; justify-content:center; height:100%;
+                   color:rgba(255,255,255,.35); font-size:13px; letter-spacing:1px; }
+        .selo { position:absolute; top:14px; left:14px; font-size:10px; font-weight:700; letter-spacing:1.2px;
+                padding:5px 13px; border-radius:50px; background:#d4af37; color:#0f0f0f; }
+        .selo.reservado { background:#8b6f47; color:#fff; }
+        .anuncio .corpo { padding:24px; flex:1; display:flex; flex-direction:column; }
+        .anuncio h3 { font-size:1.25rem; color:#14324a; margin-bottom:8px; line-height:1.3; }
+        .anuncio .local { font-size:13px; color:#7a8794; margin-bottom:16px; }
+        .anuncio .specs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+        .anuncio .specs span { background:#f2f5f8; color:#4b5563; font-size:12px; padding:5px 11px; border-radius:6px; }
+        .anuncio .preco { margin-top:auto; font-family:'Playfair Display',serif; font-size:1.6rem;
+                          font-weight:700; color:#14324a; }
+        .anuncio .preco small { display:block; font-family:'Montserrat',sans-serif; font-size:11px;
+                                font-weight:600; letter-spacing:1px; color:#b8912b; margin-bottom:2px; }
+        .vazio { text-align:center; padding:70px 24px; color:#7a8794; }
+        .vazio h3 { font-size:1.5rem; color:#14324a; margin-bottom:12px; }
+        /* ficha */
+        .ficha { position:fixed; inset:0; background:rgba(8,20,32,.92); z-index:3000; display:none;
+                 overflow-y:auto; padding:24px; }
+        .ficha.aberta { display:block; }
+        .ficha-caixa { background:#fff; max-width:900px; margin:24px auto; border-radius:16px; overflow:hidden; }
+        .ficha-fechar { position:sticky; top:0; display:flex; justify-content:flex-end; padding:14px 18px;
+                        background:#fff; z-index:2; }
+        .ficha-fechar button { background:#f2f5f8; border:none; width:40px; height:40px; border-radius:50%;
+                        font-size:22px; cursor:pointer; color:#14324a; line-height:1; }
+        .ficha-fotos { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:8px; }
+        .ficha-fotos img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; }
+        .ficha-corpo { padding:32px; }
+        .ficha-corpo h2 { font-size:2rem; color:#14324a; margin-bottom:8px; }
+        .ficha-tabela { width:100%; border-collapse:collapse; margin:22px 0; }
+        .ficha-tabela td { padding:11px 0; border-bottom:1px solid #eef1f5; font-size:15px; }
+        .ficha-tabela td:first-child { color:#7a8794; width:45%; }
+        .ficha-tabela td:last-child { color:#14324a; font-weight:600; text-align:right; }
+        @media (max-width:768px){ .ficha { padding:0; } .ficha-caixa { margin:0; border-radius:0; }
+                                  .ficha-corpo { padding:22px; } .ficha-corpo h2 { font-size:1.5rem; } }
+
         .foto-carro img {
             width: 100%;
             aspect-ratio: 16 / 10;
@@ -397,9 +445,10 @@
                 <img src="imagens/logo-jg.png" alt="JG Pazotto — O Legado Continua">
             </a>
 
-            <div class="hidden lg:flex gap-5 xl:gap-7 items-center">
+            <div class="hidden lg:flex gap-4 xl:gap-6 items-center">
                 <a href="index.html#home" class="text-white hover:text-yellow-400 transition font-semibold text-sm whitespace-nowrap">INÍCIO</a>
                 <a href="nossa-historia.html" class="text-yellow-400 transition font-semibold text-sm whitespace-nowrap">NOSSA HISTÓRIA</a>
+                <a href="anuncios.html" class="text-white hover:text-yellow-400 transition font-semibold text-sm whitespace-nowrap">ANÚNCIOS</a>
                 <a href="index.html#negocios" class="text-white hover:text-yellow-400 transition font-semibold text-sm whitespace-nowrap">NEGÓCIOS</a>
                 <a href="index.html#classicos" class="text-white hover:text-yellow-400 transition font-semibold text-sm whitespace-nowrap">CLÁSSICOS</a>
                 <a href="index.html#presenca" class="text-white hover:text-yellow-400 transition font-semibold text-sm whitespace-nowrap">ONDE ESTAMOS</a>
@@ -417,6 +466,7 @@
         <div id="menuMobile" class="lg:hidden">
             <a href="index.html#home">INÍCIO</a>
             <a href="nossa-historia.html">NOSSA HISTÓRIA</a>
+            <a href="anuncios.html">ANÚNCIOS</a>
             <a href="index.html#negocios">NEGÓCIOS</a>
             <a href="index.html#classicos">CLÁSSICOS</a>
             <a href="index.html#presenca">ONDE ESTAMOS</a>
@@ -452,7 +502,7 @@
                     <strong>Geraldo</strong>. Quatro gerações de gente que sempre soube trabalhar por conta própria.
                 </p>
                 <p class="text-lg text-gray-700 leading-relaxed">
-                    A infância de Geraldo foi passada entre a fazenda de café em Minas e o sítio em Lindóia.
+                    A infância de Geraldo foi passada entre a Fazenda São José, de café, em Minas, e o sítio em Lindóia.
                     A avó <strong>Maria</strong> cozinhava para a família inteira. O avô José ensinou a ele o que
                     escola nenhuma ensina: <em>enxergar negócio onde os outros só veem coisa parada</em>.
                 </p>
