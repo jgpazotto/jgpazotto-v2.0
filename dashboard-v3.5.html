@@ -1136,7 +1136,10 @@
         } else if (faltamCarros) {
             texto = `🚗 <b>Faltam ${faltamCarros} carro(s)</b> aqui no seu navegador. Clique para trazer.`;
         } else {
-            texto = '🔄 <b>Tem correção nova nos dados</b> — eu ajustei algo na importação das suas planilhas.';
+            // Nada faltando de verdade: so carimbo a versao e fico quieta.
+            localStorage.setItem(SEED_CHAVE, SEED_VERSAO);
+            el.innerHTML = '';
+            return;
         }
         el.innerHTML = `<div class="aviso-versao">
             ${texto}
