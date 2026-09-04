@@ -2029,7 +2029,7 @@
         const busca = (document.getElementById('searchCarros')?.value || '').trim().toUpperCase();
         const grupo = GRUPOS[filtroFrota] || GRUPOS.todos;
 
-        let lista = (database.carros || []).filter(c => grupo.testa((c.status || '').toUpperCase()));
+        let lista = (database.carros || []).filter(c => grupo.testa(c));
         if (busca) {
             lista = lista.filter(c => {
                 const clientes = (c.carnes || []).map(k => k.cliente).join(' ');
