@@ -13,7 +13,7 @@
 
     <title>Nossa História | JG Pazotto</title>
 
-    <link rel="icon" type="image/png" href="imagens/logo-jg.png">
+    <link rel="icon" type="image/png" href="imagens/brasao-jg.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -59,10 +59,33 @@
             gap: 12px;
         }
 
+        .logo-container {
+            gap: 14px;
+            text-decoration: none;
+        }
+
         .logo-container img {
-            height: 64px;
+            height: 58px;
             width: auto;
             display: block;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+        }
+
+        .marca-nome {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            line-height: 1;
+            background: linear-gradient(180deg, #f6e6a8 0%, #d4af37 52%, #a9862a 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: #e5c158;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @supports not (background-clip: text) {
+            .marca-nome { -webkit-text-fill-color: #e5c158; }
         }
 
         /* Menu do celular */
@@ -268,8 +291,17 @@
                 font-size: 2rem;
             }
 
+            .logo-container {
+                gap: 10px;
+            }
+
             .logo-container img {
-                height: 48px;
+                height: 42px;
+            }
+
+            .marca-nome {
+                font-size: 21px;
+                letter-spacing: 1px;
             }
 
             .section-bg {
@@ -309,6 +341,19 @@
 
         .icone-menu {
             display: block;
+        }
+
+        .link-area {
+            color: rgba(255, 255, 255, 0.30);
+            font-size: 12px;
+            letter-spacing: 0.6px;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .link-area:hover,
+        .link-area:focus-visible {
+            color: #d4af37;
         }
 
         /* porta discreta para o sistema interno */
@@ -441,8 +486,12 @@
 <body>
     <header class="fixed w-full top-0 z-50">
         <nav class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="index.html#home" class="logo-container">
-                <img src="imagens/logo-jg.png" alt="JG Pazotto — O Legado Continua">
+            <a href="index.html#home" class="logo-container" aria-label="JG Pazotto — página inicial">
+                <picture>
+                    <source srcset="imagens/brasao-jg.webp" type="image/webp">
+                    <img src="imagens/brasao-jg.png" alt="" width="605" height="600">
+                </picture>
+                <span class="marca-nome">JG&nbsp;Pazotto</span>
             </a>
 
             <div class="hidden lg:flex gap-4 xl:gap-6 items-center">
@@ -657,6 +706,10 @@
             <hr class="border-yellow-800 mb-8">
             <p class="assinatura mb-3">Geraldo &amp; Joice Pazotto</p>
             <p class="text-gray-500 text-sm">&copy; 2026 JG Pazotto — O Legado Continua · Brasil e Estados Unidos</p>
+
+            <p style="margin-top:20px;">
+                <a href="area.html" class="link-area">Área do proprietário</a>
+            </p>
 
             <a href="dashboard-v3.5.html" class="porta-interna" title="Área interna" aria-label="Área interna">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"

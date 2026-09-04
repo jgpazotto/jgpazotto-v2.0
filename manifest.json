@@ -1,0 +1,15 @@
+{
+  "name": "JG Pazotto — Área do Proprietário",
+  "short_name": "JG Pazotto",
+  "description": "Acesso ao sistema interno da JG Pazotto",
+  "start_url": "dashboard-v3.5.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d2438",
+  "theme_color": "#0d2438",
+  "icons": [
+    { "src": "imagens/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "imagens/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
