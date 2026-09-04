@@ -60,3 +60,15 @@ secret*
 # Supabase
 supabase/.branches/
 supabase/.temp/
+_to_delete/
+_to_delete/
+_import/
+*.tgz
+
+# Documentos de clientes - NUNCA publicar
+_docs_privados/
+Drivers/
+Drivers*/
+
+# Backups do sistema - contem dados de clientes, NUNCA publicar
+_backups/
