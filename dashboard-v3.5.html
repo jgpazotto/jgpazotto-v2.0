@@ -609,6 +609,7 @@
             <button class="tab-btn" onclick="switchTab(event, 'carro-venda')">💰 Venda / Carnê</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-debitos')">⚠️ Débitos</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-anuncio')">📢 Anúncio</button>
+            <button class="tab-btn" onclick="switchTab(event, 'carro-notas')">📄 Docs e Notas</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-fotos')">📷 Fotos</button>
         </div>
 
@@ -754,6 +755,35 @@
                 <tbody id="carro-debitos-body"></tbody>
             </table>
             <p style="margin-top:12px;font-size:15px;"><strong>Saldo devedor:</strong> <span id="carro-debitos-saldo" class="val-neg">$ 0,00</span></p>
+        </div>
+
+        <!-- DOCUMENTOS E NOTAS -->
+        <div id="carro-notas" class="tab-content">
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">
+                A linha do tempo deste carro. Anote o que aconteceu, com a data — quem alugou, o que quebrou,
+                o que o Geraldo falou, o combinado com o cliente. Fica tudo guardado aqui, em ordem.
+            </p>
+            <button class="btn btn-small" onclick="addNota()">➕ Nova nota</button>
+            <div id="carro-notas-lista" style="margin-top:12px;"></div>
+
+            <div style="margin-top:26px;padding:16px;border:1px dashed #cfd6de;border-radius:10px;background:#fafbfc;">
+                <p style="margin:0 0 8px;font-weight:bold;color:#2c3e50;">📎 Documentos deste carro</p>
+                <p style="margin:0 0 10px;font-size:13px;color:#666;">
+                    Aqui vão ficar guardados, cada um no seu lugar:
+                </p>
+                <ul style="margin:0 0 12px 18px;font-size:13px;color:#555;line-height:1.9;">
+                    <li>📘 Título e documento do carro</li>
+                    <li>🛡️ Seguro e apólice</li>
+                    <li>✍️ Contrato do comprador ou locatário</li>
+                    <li>🧾 Recibos e notas de oficina</li>
+                    <li>🪪 Documentos do cliente</li>
+                </ul>
+                <p style="margin:0;font-size:13px;color:#8a6d00;background:#fff8e1;border-left:3px solid #d4af37;padding:10px 12px;border-radius:4px;">
+                    <strong>Em breve.</strong> Documento é imagem pesada, e a memória do navegador é pequena e sem cópia
+                    de segurança. Quando o banco de dados entrar, os documentos vão pra lá — com backup e acessíveis
+                    do iPhone. Até lá, foto solta pode ir na aba 📷 Fotos, e foto de dano do veículo na aba ✅ Vistoria.
+                </p>
+            </div>
         </div>
 
         <!-- FOTOS -->
@@ -1757,6 +1787,7 @@
     // ===== CARROS =====
     // ===== CARROS =====
     let cGastos = [], cVistoria = [], cPagamentos = [], cBalanco = [];
+    let cNotas = [];   // linha do tempo do carro: [{data, texto}]
 
     function fmt(v) {
         const n = Number(v) || 0;
@@ -1884,6 +1915,7 @@
             document.getElementById('carro-anun-dest').checked = !!an.destaque;
             cCarnes  = JSON.parse(JSON.stringify(c.carnes || []));
             cDebitos = JSON.parse(JSON.stringify(c.debitos || []));
+            cNotas      = JSON.parse(JSON.stringify(c.notas || []));
             cGastos     = JSON.parse(JSON.stringify(c.gastosLista || []));
             cVistoria   = JSON.parse(JSON.stringify(c.vistoria || []));
             cPagamentos = JSON.parse(JSON.stringify(c.pagamentos || []));
@@ -1894,6 +1926,7 @@
         } else {
             document.getElementById('carroModalTitle').textContent = '➕ Novo Carro';
             clearModalInputs(modal);
+            cNotas = [];
             cGastos = []; cVistoria = []; cPagamentos = []; cBalanco = [];
             cCarnes = []; cDebitos = [];
             const dc = document.getElementById('carro-disponivel'); if (dc) dc.checked = false;
@@ -1902,6 +1935,7 @@
         }
 
         renderGastosCarro(); renderVistoriaCarro(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
+        renderNotas();
         renderCarnes(); renderDebitos();
 
         document.querySelectorAll('#carroModal .tab-content').forEach(t => t.classList.remove('active'));
@@ -1922,7 +1956,12 @@
                 ? cBalanco.reduce((s, x) => s + (Number(x.valor) || 0), 0)
                 : cPagamentos.reduce((s, x) => s + (Number(x.total) || 0), 0);
 
+            // Guarda o que ja existia: assim campos que esta tela nao conhece
+            // (por exemplo gastosDaPlanilhaAntiga) nao se perdem ao salvar.
+            const anterior = editingId ? (database.carros.find(x => x.id === editingId) || {}) : {};
+
             const novo = {
+                ...anterior,
                 id: editingId || Date.now(),
                 marca, modelo: '', ano: g('carro-ano'), placa, cor: g('carro-cor'),
                 clienteAtual: g('carro-cliente-atual'), km: g('carro-km'), vin: g('carro-vin'),
@@ -1945,6 +1984,7 @@
                     destaque: document.getElementById('carro-anun-dest').checked
                 },
                 totalGastos: totalG, totalRecebidos: totalR, saldo: totalR - totalG,
+                notas: cNotas,
                 fotos: Array.from(document.querySelectorAll('#carro-foto-gallery img')).map(i => i.src)
             };
 
@@ -2319,6 +2359,60 @@
         document.getElementById('carro-debitos-saldo').textContent = fmt(saldo);
     }
     function addDebito() { cDebitos.push({dia: '', desc: '', valor: 0, pago: false}); renderDebitos(); }
+
+    // ===== NOTAS DO CARRO (a linha do tempo, pedida duas vezes) =====
+    const escapaHtml = s => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    function dataBonita(iso) {
+        if (!iso) return 'sem data';
+        const [a, m, d] = String(iso).split('-');
+        if (!d) return iso;
+        const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        return Number(d) + ' de ' + (MES[Number(m) - 1] || m) + ' de ' + a;
+    }
+
+    function renderNotas() {
+        const el = document.getElementById('carro-notas-lista');
+        if (!el) return;
+        if (!cNotas.length) {
+            el.innerHTML = '<p style="color:#8a94a0;font-size:13px;padding:14px 0;">' +
+                'Nenhuma nota ainda. Clique em <strong>Nova nota</strong> e escreva o que aconteceu com este carro.</p>';
+            return;
+        }
+        const ordem = cNotas.map((n, i) => i).sort((x, y) =>
+            String(cNotas[y].data || '').localeCompare(String(cNotas[x].data || '')));
+        el.innerHTML = ordem.map(i => {
+            const n = cNotas[i];
+            return '<div style="border-left:3px solid #d4af37;background:#fff;border-radius:6px;' +
+                   'box-shadow:0 1px 3px rgba(0,0,0,.07);padding:12px 14px;margin-bottom:10px;">' +
+                     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+                       '<input type="date" value="' + escapaHtml(n.data) + '" ' +
+                              'onchange="cNotas[' + i + '].data=this.value;renderNotas()" ' +
+                              'style="border:1px solid #dde3ea;border-radius:5px;padding:4px 8px;font-size:13px;">' +
+                       '<span style="font-size:12px;color:#8a94a0;">' + escapaHtml(dataBonita(n.data)) + '</span>' +
+                       '<button class="del" style="margin-left:auto" ' +
+                               'onclick="cNotas.splice(' + i + ',1);renderNotas()">&#10005;</button>' +
+                     '</div>' +
+                     '<textarea rows="3" placeholder="O que aconteceu?" ' +
+                               'oninput="cNotas[' + i + '].texto=this.value" ' +
+                               'style="width:100%;border:1px solid #dde3ea;border-radius:6px;padding:9px;' +
+                               'font-size:14px;font-family:inherit;resize:vertical;">' + escapaHtml(n.texto) + '</textarea>' +
+                   '</div>';
+        }).join('');
+    }
+
+    function addNota() {
+        const h = new Date();
+        const iso = h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') +
+                    '-' + String(h.getDate()).padStart(2, '0');
+        cNotas.push({data: iso, texto: ''});
+        renderNotas();
+        setTimeout(function () {
+            const ta = document.querySelector('#carro-notas-lista textarea');
+            if (ta) ta.focus();
+        }, 60);
+    }
 
     function passarParaVenda() {
         const sel = document.getElementById('carro-status');
@@ -3450,7 +3544,10 @@
             const totG = iDespesas.reduce((s, d) => s + (Number(d.gasto) || 0), 0);
             const totR = iDespesas.reduce((s, d) => s + (Number(d.recebido) || 0), 0)
                        + iAlugueis.reduce((s, a) => s + (a.meses || []).reduce((x, m) => x + (Number(m.valor) || 0), 0), 0);
+            const anterior = editingId ? (database.imoveis.find(x => x.id === editingId) || {}) : {};
+
             const novo = {
+                ...anterior,
                 id: editingId || Date.now(), apelido, tipo: g('imv-tipo'),
                 endereco: g('imv-endereco'), cidade: g('imv-cidade'), estado: '',
                 pais: g('imv-pais'), moeda: g('imv-moeda'), status: g('imv-status'),
