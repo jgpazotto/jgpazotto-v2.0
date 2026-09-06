@@ -90,6 +90,10 @@
         .badge-warning { background: #fff3cd; color: #856404; }
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        /* Em tela larga o cartao abre AO LADO do menu, para o menu nunca sumir. */
+        @media (min-width: 900px) {
+            .modal { left: 250px; width: calc(100% - 250px); }
+        }
         .modal.active { display: flex; }
         .modal-content { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: min(700px, calc(100vw - 32px)); max-height: 90vh; overflow-y: auto; overflow-x: hidden; position: relative; box-sizing: border-box; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--secondary); padding-bottom: 15px; }
