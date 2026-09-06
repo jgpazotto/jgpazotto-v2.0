@@ -630,6 +630,7 @@
                 <div class="form-group"><label>Placa antiga</label><input type="text" id="carro-placa-antiga" placeholder="se mudou de estado"></div>
                 <div class="form-group"><label>Cor</label><input type="text" id="carro-cor" placeholder="AZUL"></div>
                 <div class="form-group"><label>Cliente atual</label><input type="text" id="carro-cliente-atual" placeholder="Nome de quem está com o carro"></div>
+                <div class="form-group"><label>Valor de compra $</label><input type="number" step="0.01" id="carro-valorcompra" placeholder="4133.00" onchange="atualizarBalanco()"></div>
                 <div class="form-group"><label>Milhas</label><input type="text" id="carro-km" placeholder="43283"></div>
                 <div class="form-group" style="grid-column: 1 / -1;"><label>ID Number (VIN)</label><input type="text" id="carro-vin" placeholder="1FADP5BU8DL533914"></div>
                 <div class="form-group"><label>Título no nome de</label><input type="text" id="carro-titular" placeholder="Joice"></div>
@@ -681,10 +682,15 @@
         <!-- BALANÇO -->
         <div id="carro-balanco" class="tab-content">
             <div class="resumo-row">
+                <div class="resumo-card"><small>Compra</small><b id="bal-compra">$ 0,00</b></div>
                 <div class="resumo-card"><small>Gastos</small><b id="bal-gastos">$ 0,00</b></div>
                 <div class="resumo-card"><small>Recebidos</small><b id="bal-recebidos">$ 0,00</b></div>
-                <div class="resumo-card"><small>Saldo</small><b id="bal-saldo">$ 0,00</b></div>
+                <div class="resumo-card"><small>Lucro / Prejuízo</small><b id="bal-saldo">$ 0,00</b></div>
             </div>
+            <p style="font-size:12px;color:#7b8794;margin:-8px 0 4px;">
+                Lucro = Recebidos − (Compra + Gastos). Se o carro foi vendido no carnê, o que entrou pelas
+                parcelas ainda <strong>não</strong> conta aqui — lance na tabela abaixo.
+            </p>
             <h4 style="color:var(--primary);margin:18px 0 6px;">Recebido por cliente</h4>
             <table class="mini-table">
                 <thead><tr><th>Cliente</th><th style="width:140px">Valor $</th><th style="width:45px"></th></tr></thead>
@@ -1877,9 +1883,12 @@
         const r = cBalanco.length
             ? cBalanco.reduce((s, x) => s + (Number(x.valor) || 0), 0)
             : cPagamentos.reduce((s, x) => s + (Number(x.total) || 0), 0);
-        const saldo = r - g;
+        const compra = parseFloat(document.getElementById('carro-valorcompra')?.value) || 0;
+        const saldo = r - g - compra;
         const eg = document.getElementById('bal-gastos');
         if (!eg) return;
+        const ec = document.getElementById('bal-compra');
+        if (ec) ec.textContent = fmt(compra);
         eg.textContent = fmt(g);
         document.getElementById('bal-recebidos').textContent = fmt(r);
         const es = document.getElementById('bal-saldo');
@@ -1905,6 +1914,7 @@
             set('carro-placa-antiga', c.placaAntiga);
             const setv = (el, v) => { const e = document.getElementById(el); if (e) e.value = (v === undefined || v === null) ? '' : v; };
             setv('carro-valorvenda', c.valorVenda); setv('carro-entrada', c.entrada);
+            setv('carro-valorcompra', c.valorCompra);
             const an = c.anuncio || {};
             document.getElementById('carro-disponivel').checked = !!c.disponivel;
             setv('carro-anun-fin', an.finalidade || 'Venda'); setv('carro-anun-preco', an.preco || '');
@@ -1972,6 +1982,7 @@
                 desc: g('carro-desc'),
                 gastosLista: cGastos, vistoria: cVistoria, pagamentos: cPagamentos, balanco: cBalanco,
                 valorVenda: parseFloat(g('carro-valorvenda')) || 0,
+                valorCompra: parseFloat(g('carro-valorcompra')) || 0,
                 entrada: parseFloat(g('carro-entrada')) || 0,
                 carnes: cCarnes, debitos: cDebitos,
                 disponivel: document.getElementById('carro-disponivel').checked,
@@ -1983,7 +1994,8 @@
                     situacao: g('carro-anun-sit'),
                     destaque: document.getElementById('carro-anun-dest').checked
                 },
-                totalGastos: totalG, totalRecebidos: totalR, saldo: totalR - totalG,
+                totalGastos: totalG, totalRecebidos: totalR,
+                saldo: totalR - totalG - (parseFloat(g('carro-valorcompra')) || 0),
                 notas: cNotas,
                 fotos: Array.from(document.querySelectorAll('#carro-foto-gallery img')).map(i => i.src)
             };
