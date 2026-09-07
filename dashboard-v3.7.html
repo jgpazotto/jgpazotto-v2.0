@@ -3530,6 +3530,24 @@
     // entram na lista mas ja vem DESMARCADOS - quase nunca sao gasto do carro
     const ZAP_DUVIDA = /\b(fastrak|fast trak|puente|ped[áa]gio|pedagio|rent|aluguel|dep[óo]sito|deposito|d[íi]as|dias|falta|caf[ée]|almo[çc]o|frango|costco|shake|[áa]gua|combinado|jantar|lanche)\b/i;
     const ZAP_URL = /https?:\/\/|www\./i;
+    // O Geraldo posta o ORÇAMENTO para saber o valor e posta DE NOVO quando paga.
+    // Por isso a mesma linha aparece 2, 3, 7 vezes. Estas três regras foram
+    // descobertas conferindo com os totais que ele mesmo escreve no grupo.
+    // 1) linha de SOMA não é despesa (era a maior fonte de erro: "14.654,10 custo total")
+    const ZAP_SOMA = /\b(total|totais|saldo|custo|soma|somando|acumulad\w*|resumo|balan[çc]o|falta|faltam|gastos?)\b/i;
+    // 2) pode ser dinheiro que ENTROU, não gasto - separar e perguntar
+    const ZAP_RECEITA = /\b(pago|paguei|pagou|dep[óo]sito|deposito|cr[ée]dito|aluguel|rent|cliente|recebi|recebido)\b/i;
+    // 3) lote/bid/arremate é a COMPRA do carro — já está no campo "Valor de compra $".
+    //    Se entrar como gasto, o carro conta a compra duas vezes.
+    const ZAP_COMPRA = /\b(lote|bid|arremate|leil[ãa]o|compra do carro)\b/i;
+    // 4) a de-duplicação por (valor + descrição) está em agruparZap()
+
+    function zapChave(a) {
+        const d = (a.obs || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // tira acento
+            .replace(/[^a-z0-9]+/g, ' ').trim();
+        return a.gasto + '|' + d;
+    }
     // VIN, placa, codigo: 6+ caracteres misturando letra e numero
     const ZAP_CODIGO = /\b(?=[A-Za-z0-9]{6,})(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*[0-9])[A-Za-z0-9]{6,}\b/;
     const ZAP_VALOR = /(?:(\$)\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(\s*\$)?/;
@@ -3609,7 +3627,34 @@
                                  quem: x.quem, usar: !ZAP_DUVIDA.test(desc)});
             });
         });
+        agruparZap();
         mostrarZap();
+    }
+
+    // Junta as linhas iguais numa só, com contador. A primeira fica; as outras
+    // viram "repetição" e já nascem desmarcadas.
+    function agruparZap() {
+        const vistos = {};
+        zapAchados.forEach(a => {
+            a.tipo = ZAP_SOMA.test(a.obs)    ? 'soma'
+                   : ZAP_COMPRA.test(a.obs)  ? 'compra'
+                   : ZAP_RECEITA.test(a.obs) ? 'receita' : 'gasto';
+            const k = zapChave(a);
+            if (vistos[k] === undefined) { vistos[k] = a; a.repete = 1; a.datas = [a.dia]; }
+            else { a.repetida = true; vistos[k].repete++; vistos[k].datas.push(a.dia); }
+            // só entra marcado o que é gasto, não é repetição e não é dúvida
+            a.usar = (a.tipo === 'gasto') && !a.repetida && !ZAP_DUVIDA.test(a.obs);
+        });
+    }
+
+    let zapFiltro = 'gasto';
+    function zapVerFiltro(f) { zapFiltro = f; mostrarZap(); }
+    function zapMostrarDatas(i) {
+        const a = zapAchados[i];
+        alert('"' + a.obs + '" de ' + fmt(a.gasto) + ' aparece ' + a.repete + ' vezes no grupo:\n\n' +
+              (a.datas || []).join('\n') +
+              '\n\nEu deixei marcada só a primeira. Se forem gastos diferentes de verdade, ' +
+              'é só marcar as outras na aba "repetidas".');
     }
 
     function mostrarZap() {
@@ -3619,24 +3664,93 @@
             el.innerHTML = '<div class="aviso-pend">Não achei nenhuma mensagem com valor em dinheiro nesse arquivo. Confere se exportou <b>sem mídia</b> e me manda de novo.</div>';
             return;
         }
-        const total = zapAchados.filter(a => a.usar).reduce((s, a) => s + a.gasto, 0);
+        const marcados = zapAchados.filter(a => a.usar);
+        const total = marcados.reduce((s, a) => s + a.gasto, 0);
+
+        // O próprio Geraldo escreve o total no grupo. Uso o MAIOR como conferidor.
+        const somas = zapAchados.filter(a => a.tipo === 'soma');
+        const maiorSoma = somas.length ? somas.reduce((m, a) => a.gasto > m.gasto ? a : m) : null;
+
+        const cont = {
+            gasto:   zapAchados.filter(a => a.tipo === 'gasto' && !a.repetida).length,
+            compra:  zapAchados.filter(a => a.tipo === 'compra' && !a.repetida).length,
+            repetida:zapAchados.filter(a => a.repetida).length,
+            soma:    zapAchados.filter(a => a.tipo === 'soma').length,
+            receita: zapAchados.filter(a => a.tipo === 'receita' && !a.repetida).length
+        };
+        const lista = zapAchados
+            .map((a, i) => ({a, i}))
+            .filter(({a}) =>
+                zapFiltro === 'tudo'      ? true :
+                zapFiltro === 'repetida'  ? a.repetida :
+                zapFiltro === 'soma'      ? a.tipo === 'soma' :
+                zapFiltro === 'compra'    ? (a.tipo === 'compra' && !a.repetida) :
+                zapFiltro === 'receita'   ? (a.tipo === 'receita' && !a.repetida) :
+                /* gasto */                 (a.tipo === 'gasto' && !a.repetida));
+
+        const aba = (id, txt, n) =>
+            `<button class="btn btn-small" onclick="zapVerFiltro('${id}')"
+               style="${zapFiltro === id ? 'background:#b8912b;color:#fff' : 'background:#eef2f7;color:#33475b'}">
+               ${txt} (${n})</button>`;
+
+        const explica = {
+            gasto:   'Cada linha aqui é um gasto diferente. As repetições do mesmo valor já saíram da frente.',
+            repetida:'O Geraldo posta o orçamento e depois posta de novo quando paga — por isso a mesma linha aparece várias vezes. Deixei marcada só a primeira de cada. Se alguma aqui for um gasto de verdade (o mesmo serviço feito duas vezes), marque.',
+            compra:  'Estas linhas falam em <b>lote, bid, leilão</b> — é o preço que vocês pagaram pelo carro. Isso já vai no campo <b>Valor de compra $</b> da ficha. Se entrar aqui também, o carro conta a compra duas vezes.',
+            soma:    'Estas linhas são <b>somas e totais</b> que ele escreveu no grupo, não despesas. Se entrarem, o carro conta o gasto duas vezes. Por isso já vêm desmarcadas — servem para você conferir se a minha conta bate com a dele.',
+            receita: 'Estas linhas falam em <b>pago, depósito, crédito, aluguel</b> — pode ser dinheiro que ENTROU, não que saiu. Não lanço como gasto sem você olhar.',
+            tudo:    'Tudo que eu achei, na ordem da conversa.'
+        }[zapFiltro];
+
         el.innerHTML = `<div class="vd-card">
-            <h4>Achei ${zapAchados.length} mensagem(ns) com valor</h4>
-            <div class="carro">Desmarque o que não for gasto do carro. Somando o que está marcado: <b>${fmt(total)}</b></div>
-            <div style="max-height:460px;overflow:auto"><table class="mini-table">
-              <thead><tr><th style="width:36px">Usar</th><th style="width:105px">Data</th><th style="width:100px">Valor</th><th>O que dizia a mensagem</th><th style="width:120px">Quem mandou</th></tr></thead>
-              <tbody>${zapAchados.map((a, i) => `<tr>
-                <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''} onchange="zapAchados[${i}].usar=this.checked;mostrarZap()"></td>
+            <h4>Achei ${zapAchados.length} mensagens com valor — separei em ${cont.gasto} gastos diferentes</h4>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
+              ${aba('gasto','🧾 Gastos diferentes',cont.gasto)}
+              ${aba('repetida','🔁 Repetidas',cont.repetida)}
+              ${aba('compra','🏷️ Compra do carro',cont.compra)}
+              ${aba('soma','∑ Somas e totais',cont.soma)}
+              ${aba('receita','💰 Pode ser recebimento',cont.receita)}
+              ${aba('tudo','Tudo',zapAchados.length)}
+            </div>
+            <div class="carro" style="background:#eef2f7;padding:8px 10px;border-radius:6px;font-size:13px">${explica}</div>
+            <div class="carro" style="margin-top:8px">Marcadas agora: <b>${marcados.length}</b> linhas ·
+              somando <b>${fmt(total)}</b></div>
+            ${maiorSoma ? `<div style="margin-top:6px;padding:8px 10px;border-radius:6px;font-size:13px;
+                 background:${total > maiorSoma.gasto * 1.15 ? '#fdecea' : '#e8f6ee'};
+                 border:1px solid ${total > maiorSoma.gasto * 1.15 ? '#c0392b' : '#1e8449'}">
+                 📋 No grupo, o maior total escrito foi <b>${fmt(maiorSoma.gasto)}</b> (${maiorSoma.dia}).
+                 ${total > maiorSoma.gasto * 1.15
+                    ? 'Você está marcando <b>mais</b> que isso — provavelmente ainda tem repetição ou soma marcada.'
+                    : 'Sua conta está dentro do que ele escreveu. Lembre que o grupo pode ter gastos depois dessa data.'}
+               </div>` : ''}
+            <div style="max-height:460px;overflow:auto;margin-top:8px"><table class="mini-table">
+              <thead><tr><th style="width:36px">Usar</th><th style="width:105px">Data</th>
+                <th style="width:100px">Valor</th><th>O que dizia a mensagem</th>
+                <th style="width:120px">Quem mandou</th></tr></thead>
+              <tbody>${lista.map(({a, i}) => {
+                const cor = a.tipo === 'soma' ? 'background:#fff8e1' :
+                            a.tipo === 'receita' ? 'background:#e8f6ee' :
+                            (a.repetida ? 'background:#f7f7f7' : '');
+                const selo = a.repete > 1 && !a.repetida
+                    ? ` <a href="#" onclick="zapMostrarDatas(${i});return false"
+                         style="font-size:11px;color:#b8912b;text-decoration:none;white-space:nowrap"
+                         title="clique para ver as datas">🔁 ${a.repete}×</a>` : '';
+                return `<tr style="${cor}">
+                <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''}
+                    onchange="zapAchados[${i}].usar=this.checked;mostrarZap()"></td>
                 <td><input value="${(a.dia || '').replace(/"/g,'&quot;')}" onchange="zapAchados[${i}].dia=this.value"></td>
-                <td><input type="number" step="0.01" value="${a.gasto}" onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;mostrarZap()"></td>
-                <td><input value="${(a.obs || '').replace(/"/g,'&quot;')}" onchange="zapAchados[${i}].obs=this.value"></td>
+                <td><input type="number" step="0.01" value="${a.gasto}"
+                    onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;agruparZap();mostrarZap()"></td>
+                <td><input value="${(a.obs || '').replace(/"/g,'&quot;')}" style="width:78%"
+                    onchange="zapAchados[${i}].obs=this.value">${selo}</td>
                 <td style="font-size:12px;color:#7b8794">${a.quem || ''}</td>
-              </tr>`).join('')}</tbody>
+              </tr>`; }).join('') ||
+                '<tr><td colspan="5" style="padding:14px;color:#7b8794">Nada nesta aba.</td></tr>'}</tbody>
             </table></div>
             <div class="vd-rodape">
-              <button class="btn" onclick="gravarZap()">💾 Jogar nos gastos deste carro</button>
+              <button class="btn" onclick="gravarZap()">💾 Jogar nos gastos deste carro (${marcados.length})</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>a.usar=false);mostrarZap()">Desmarcar tudo</button>
-              <button class="btn btn-small" onclick="zapAchados.forEach(a=>a.usar=true);mostrarZap()">Marcar tudo</button>
+              <button class="btn btn-small" onclick="agruparZap();mostrarZap()">↩️ Voltar ao que eu sugeri</button>
             </div>
         </div>`;
     }
