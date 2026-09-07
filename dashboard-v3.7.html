@@ -1472,11 +1472,6 @@
             ' · ' + ((PAPEIS[EU.papel] || {}).nome || EU.papel));
     }
 
-    function escapaHtml(t) {
-        return String(t == null ? '' : t).replace(/[&<>"']/g,
-            c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
     // ===== FUNCIONÁRIOS =====
     const NOME_DA_AREA = {
         carros:'Carros (ficha, placa, status)', fotos:'Fotos e vistoria',
