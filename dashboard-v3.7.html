@@ -659,6 +659,7 @@
             <button class="tab-btn" onclick="switchTab(event, 'carro-pagamentos')">💵 Pagamentos</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-balanco')">📊 Balanço</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-venda')">💰 Venda / Carnê</button>
+            <button class="tab-btn" onclick="switchTab(event, 'carro-locacoes')">🔑 Quem ficou com o carro</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-debitos')">⚠️ Débitos</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-anuncio')">📢 Anúncio</button>
             <button class="tab-btn" onclick="switchTab(event, 'carro-notas')">📄 Docs e Notas</button>
@@ -804,12 +805,31 @@
             <div id="carro-anun-aviso"></div>
         </div>
 
+        <!-- QUEM FICOU COM O CARRO -->
+        <div id="carro-locacoes" class="tab-content">
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">
+                De quando até quando cada pessoa ficou com este carro. É isto que deixa o sistema
+                saber <b>de quem cobrar</b> uma multa ou um FasTrak: ele olha a data da multa e
+                acha quem estava com o carro naquele dia. Deixe o <b>até</b> vazio se a pessoa
+                ainda está com ele.
+            </p>
+            <button class="btn btn-small" onclick="addLocacao()">➕ Adicionar período</button>
+            <table class="mini-table">
+                <thead><tr><th>Quem ficou</th><th style="width:130px">Telefone</th>
+                  <th style="width:135px">De</th><th style="width:135px">Até</th>
+                  <th>Observação</th><th style="width:45px"></th></tr></thead>
+                <tbody id="carro-locacoes-body"></tbody>
+            </table>
+        </div>
+
         <!-- DÉBITOS -->
         <div id="carro-debitos" class="tab-content">
             <p style="font-size:13px;color:#666;margin-bottom:10px;">Multa de trânsito, licenciamento, FasTrak, pneu — o que o cliente ainda deve fora do carnê.</p>
             <button class="btn btn-small" onclick="addDebito()">➕ Novo débito</button>
             <table class="mini-table">
-                <thead><tr><th style="width:110px">Dia</th><th>O que é</th><th style="width:120px">Valor $</th><th style="width:90px">Pago?</th><th style="width:45px"></th></tr></thead>
+                <thead><tr><th style="width:110px">Dia</th><th>O que é</th>
+                  <th style="width:150px">De quem cobrar</th><th style="width:120px">Valor $</th>
+                  <th style="width:90px">Pago?</th><th style="width:45px"></th></tr></thead>
                 <tbody id="carro-debitos-body"></tbody>
             </table>
             <p style="margin-top:12px;font-size:15px;"><strong>Saldo devedor:</strong> <span id="carro-debitos-saldo" class="val-neg">$ 0,00</span></p>
@@ -2411,7 +2431,7 @@
 
         renderGastosCarro(); renderVistoriaCarro(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
         renderNotas();
-        renderCarnes(); renderDebitos();
+        renderCarnes(); renderDebitos(); renderLocacoes();
 
         document.querySelectorAll('#carroModal .tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('#carroModal .tab-btn').forEach(b => b.classList.remove('active'));
@@ -2829,13 +2849,47 @@
         tb.innerHTML = cDebitos.map((d, i) => `<tr class="${d.pago ? 'linha-pago' : ''}">
             <td><input value="${(d.dia||'').replace(/"/g,'&quot;')}" onchange="cDebitos[${i}].dia=this.value"></td>
             <td><input value="${(d.desc||'').replace(/"/g,'&quot;')}" onchange="cDebitos[${i}].desc=this.value"></td>
+            <td><input value="${escapaHtml(d.cliente||'')}" list="lista-de-clientes" placeholder="quem deve"
+                 onchange="cDebitos[${i}].cliente=this.value"></td>
             <td><input type="number" step="0.01" value="${d.valor||''}" onchange="cDebitos[${i}].valor=parseFloat(this.value)||0;renderDebitos()"></td>
             <td style="text-align:center"><input type="checkbox" ${d.pago ? 'checked' : ''} onchange="cDebitos[${i}].pago=this.checked;renderDebitos()"></td>
             <td><button class="del" onclick="cDebitos.splice(${i},1);renderDebitos()">✕</button></td></tr>`).join('');
         const saldo = cDebitos.filter(d => !d.pago).reduce((s, d) => s + (Number(d.valor) || 0), 0);
         document.getElementById('carro-debitos-saldo').textContent = fmt(saldo);
     }
-    function addDebito() { cDebitos.push({dia: '', desc: '', valor: 0, pago: false}); renderDebitos(); }
+    function addDebito() { cDebitos.push({dia: '', desc: '', valor: 0, pago: false, cliente: ''}); renderDebitos(); }
+
+    // ===== QUEM FICOU COM O CARRO (períodos de locação) =====
+    // É daqui que o sistema tira DE QUEM cobrar uma multa: pela data.
+    let cLocacoes = [];
+
+    function renderLocacoes() {
+        const tb = document.getElementById('carro-locacoes-body');
+        if (!tb) return;
+        tb.innerHTML = cLocacoes.map((l, i) => `<tr>
+            <td><input value="${escapaHtml(l.cliente || '')}" list="lista-de-clientes"
+                 onchange="cLocacoes[${i}].cliente=this.value"></td>
+            <td><input value="${escapaHtml(l.tel || '')}" onchange="cLocacoes[${i}].tel=this.value"></td>
+            <td><input type="date" value="${l.de || ''}" onchange="cLocacoes[${i}].de=this.value;renderLocacoes()"></td>
+            <td><input type="date" value="${l.ate || ''}" onchange="cLocacoes[${i}].ate=this.value;renderLocacoes()"></td>
+            <td><input value="${escapaHtml(l.obs || '')}" onchange="cLocacoes[${i}].obs=this.value"></td>
+            <td><button class="del" onclick="cLocacoes.splice(${i},1);renderLocacoes()">✕</button></td>
+          </tr>`).join('') ||
+          '<tr><td colspan="6" style="padding:12px;color:#7b8794">Nenhum período cadastrado ainda.</td></tr>';
+        let dl = document.getElementById('lista-de-clientes');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'lista-de-clientes'; document.body.appendChild(dl); }
+        dl.innerHTML = (database.clientes || []).map(c => `<option value="${escapaHtml(c.nome || '')}">`).join('');
+    }
+    function addLocacao() { cLocacoes.push({cliente: '', tel: '', de: '', ate: '', obs: ''}); renderLocacoes(); }
+
+    // Quem estava com o carro nesta data? (data em AAAA-MM-DD)
+    function clienteNaData(carro, iso) {
+        if (!carro || !iso) return null;
+        const dentro = (carro.locacoes || []).find(l =>
+            l.de && iso >= l.de && (!l.ate || iso <= l.ate));
+        if (dentro) return {nome: dentro.cliente, tel: dentro.tel || '', de: dentro.de, ate: dentro.ate};
+        return null;
+    }
 
     // ===== NOTAS DO CARRO (a linha do tempo, pedida duas vezes) =====
     const escapaHtml = s => String(s == null ? '' : s)
@@ -3542,6 +3596,53 @@
     const ZAP_COMPRA = /\b(lote|bid|arremate|leil[ãa]o|compra do carro)\b/i;
     // 4) a de-duplicação por (valor + descrição) está em agruparZap()
 
+    // ===== O QUE É CADA LINHA (a Joice explicou em 07/09) =====
+    // Muita coisa no grupo NÃO é gasto do carro: é conta a cobrar do cliente,
+    // desconto que ele ganhou, dinheiro que ele pagou, ou acerto com o mecânico.
+    const TIPOS = {
+        gasto:     {rot: '🔧 Gasto do carro',        cor: '', ajuda: 'Peça, serviço, funilaria. Sai do lucro do carro.'},
+        jg:        {rot: '🏢 Gasto que a JG assume', cor: '#eef2f7', ajuda: 'Manutenção que é obrigação de vocês — nunca vai para o cliente.'},
+        cobrar:    {rot: '🎫 Multa / pedágio a cobrar', cor: '#fff8e1', ajuda: 'FasTrak, ticket, multa. Fica na Cobrança do cliente até ele pagar.'},
+        dano:      {rot: '💥 Dano do veículo',       cor: '#fdecea', ajuda: 'Parabrisa, batida, tanque não completado. Também vai para a Cobrança.'},
+        desconto:  {rot: '🎁 Desconto ao cliente',   cor: '#f3e8ff', ajuda: 'Bônus de indicação. Não é gasto — é crédito que ele tem com vocês.'},
+        recebido:  {rot: '💵 Recebimento do cliente',cor: '#e8f6ee', ajuda: 'Depósito, aluguel, acerto. É dinheiro que ENTROU.'},
+        fornecedor:{rot: '🤝 Acerto com fornecedor', cor: '#e7f0fb', ajuda: 'Pagamento ao mecânico (Luiz) ou a outro fornecedor.'},
+        nada:      {rot: '🚫 Não é nada',            cor: '#f7f7f7', ajuda: 'Soma, total, repetição ou o preço de compra do carro.'}
+    };
+    const ZAP_COBRAR   = /\b(fastrak|fast trak|ped[áa]gio|pedagio|ticket|multa|multas|licenciamento|di?vida|d[íi]vida|toll)\b/i;
+    // Dano é só o que é claramente dano. "vidro" pegava "calhas vidro" (peça),
+    // e "gasolina"/"tanque" pegavam abastecimento normal do carro. Testado nas conversas.
+    const ZAP_DANO     = /\b(parabrisa|para-brisa|batida|amassad\w*|quebrad\w*|dano|danos|arranh\w*)\b/i;
+    // Estas continuam como gasto do carro, mas quase sempre são do inquilino:
+    // marco com um aviso na linha e a Joice decide. Não decido por ela.
+    const ZAP_TALVEZ_CLIENTE = /\b(gasolina|combust[íi]vel|tanque|limpeza|aspirar|lavagem|lyft|uber|cheiro)\b/i;
+    const ZAP_DESCONTO = /\b(b[ôo]nus|bonus|indica[çc][ãa]o|indicacao|indic|desconto|descontar|cortesia)\b/i;
+
+    function classificarZap(a) {
+        if (a.repetida)               return 'nada';
+        if (ZAP_SOMA.test(a.obs))     return 'nada';
+        if (ZAP_COMPRA.test(a.obs))   return 'nada';
+        if (ZAP_DESCONTO.test(a.obs)) return 'desconto';
+        if (ZAP_DANO.test(a.obs))     return 'dano';
+        if (ZAP_COBRAR.test(a.obs))   return 'cobrar';
+        if (ZAP_RECEITA.test(a.obs))  return 'recebido';
+        return 'gasto';
+    }
+
+    // De quem é esta linha? Primeiro pelo período de locação (a data manda),
+    // depois por um nome de cliente escrito na própria mensagem.
+    function donoDaLinha(carro, a) {
+        const naData = clienteNaData(carro, a.iso);
+        if (naData && naData.nome) return {nome: naData.nome, tel: naData.tel, como: 'estava com o carro'};
+        const texto = ' ' + (a.obs || '').toLowerCase() + ' ';
+        const achado = (database.clientes || []).find(c => {
+            const primeiro = String(c.nome || '').trim().split(/\s+/)[0].toLowerCase();
+            return primeiro.length > 2 && texto.includes(' ' + primeiro);
+        });
+        if (achado) return {nome: achado.nome, tel: achado.tel || '', como: 'nome na mensagem'};
+        return null;
+    }
+
     function zapChave(a) {
         const d = (a.obs || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // tira acento
@@ -3622,7 +3723,8 @@
                     .replace(/\s+/g, ' ').replace(/^[\s\-–:=+]+|[\s\-–:=+]+$/g, '');
                 if ((desc.match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) return;
                 if (ZAP_NAO.test(desc)) return;
-                zapAchados.push({dia: dia + ' ' + MES[mes - 1] + '. ' + String(ano).slice(2), ano: String(ano),
+                const iso = String(ano) + '-' + String(mes).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
+                zapAchados.push({dia: dia + ' ' + MES[mes - 1] + '. ' + String(ano).slice(2), ano: String(ano), iso,
                                  obs: desc.slice(0, 70), gasto: Math.round(v * 100) / 100,
                                  quem: x.quem, usar: !ZAP_DUVIDA.test(desc)});
             });
@@ -3636,15 +3738,24 @@
     function agruparZap() {
         const vistos = {};
         zapAchados.forEach(a => {
-            a.tipo = ZAP_SOMA.test(a.obs)    ? 'soma'
-                   : ZAP_COMPRA.test(a.obs)  ? 'compra'
-                   : ZAP_RECEITA.test(a.obs) ? 'receita' : 'gasto';
             const k = zapChave(a);
             if (vistos[k] === undefined) { vistos[k] = a; a.repete = 1; a.datas = [a.dia]; }
             else { a.repetida = true; vistos[k].repete++; vistos[k].datas.push(a.dia); }
-            // só entra marcado o que é gasto, não é repetição e não é dúvida
-            a.usar = (a.tipo === 'gasto') && !a.repetida && !ZAP_DUVIDA.test(a.obs);
+            if (!a.tipoTravado) a.tipo = classificarZap(a);
+            a.talvezCliente = (a.tipo === 'gasto') && ZAP_TALVEZ_CLIENTE.test(a.obs);
+            // de quem é: pelo período de locação, senão pelo nome na mensagem
+            const carro = carroDoZap();
+            const dono = (a.tipo === 'cobrar' || a.tipo === 'dano' ||
+                          a.tipo === 'desconto' || a.tipo === 'recebido')
+                       ? donoDaLinha(carro, a) : null;
+            if (dono && !a.clienteTravado) { a.cliente = dono.nome; a.tel = dono.tel; a.como = dono.como; }
+            a.usar = a.tipo !== 'nada' && !a.repetida;
         });
+    }
+
+    function carroDoZap() {
+        const sel = document.getElementById('zap-carro');
+        return (database.carros || []).find(x => String(x.id) === String(sel && sel.value)) || null;
     }
 
     let zapFiltro = 'gasto';
@@ -3665,119 +3776,190 @@
             return;
         }
         const marcados = zapAchados.filter(a => a.usar);
-        const total = marcados.reduce((s, a) => s + a.gasto, 0);
+        const somaDe = t => marcados.filter(a => a.tipo === t).reduce((x, a) => x + a.gasto, 0);
+        const conta   = t => zapAchados.filter(a => a.tipo === t && !a.repetida).length;
 
-        // O próprio Geraldo escreve o total no grupo. Uso o MAIOR como conferidor.
-        const somas = zapAchados.filter(a => a.tipo === 'soma');
+        const somas = zapAchados.filter(a => ZAP_SOMA.test(a.obs));
         const maiorSoma = somas.length ? somas.reduce((m, a) => a.gasto > m.gasto ? a : m) : null;
+        const totalGastos = somaDe('gasto') + somaDe('jg');
+        const totalCobrar = somaDe('cobrar') + somaDe('dano');
 
-        const cont = {
-            gasto:   zapAchados.filter(a => a.tipo === 'gasto' && !a.repetida).length,
-            compra:  zapAchados.filter(a => a.tipo === 'compra' && !a.repetida).length,
-            repetida:zapAchados.filter(a => a.repetida).length,
-            soma:    zapAchados.filter(a => a.tipo === 'soma').length,
-            receita: zapAchados.filter(a => a.tipo === 'receita' && !a.repetida).length
-        };
-        const lista = zapAchados
-            .map((a, i) => ({a, i}))
-            .filter(({a}) =>
-                zapFiltro === 'tudo'      ? true :
-                zapFiltro === 'repetida'  ? a.repetida :
-                zapFiltro === 'soma'      ? a.tipo === 'soma' :
-                zapFiltro === 'compra'    ? (a.tipo === 'compra' && !a.repetida) :
-                zapFiltro === 'receita'   ? (a.tipo === 'receita' && !a.repetida) :
-                /* gasto */                 (a.tipo === 'gasto' && !a.repetida));
+        const ORDEM = ['gasto','jg','cobrar','dano','desconto','recebido','fornecedor','nada'];
+        const lista = zapAchados.map((a, i) => ({a, i}))
+            .filter(({a}) => zapFiltro === 'tudo' ? true
+                           : zapFiltro === 'repetida' ? a.repetida
+                           : (a.tipo === zapFiltro && !a.repetida));
 
         const aba = (id, txt, n) =>
             `<button class="btn btn-small" onclick="zapVerFiltro('${id}')"
                style="${zapFiltro === id ? 'background:#b8912b;color:#fff' : 'background:#eef2f7;color:#33475b'}">
                ${txt} (${n})</button>`;
 
-        const explica = {
-            gasto:   'Cada linha aqui é um gasto diferente. As repetições do mesmo valor já saíram da frente.',
-            repetida:'O Geraldo posta o orçamento e depois posta de novo quando paga — por isso a mesma linha aparece várias vezes. Deixei marcada só a primeira de cada. Se alguma aqui for um gasto de verdade (o mesmo serviço feito duas vezes), marque.',
-            compra:  'Estas linhas falam em <b>lote, bid, leilão</b> — é o preço que vocês pagaram pelo carro. Isso já vai no campo <b>Valor de compra $</b> da ficha. Se entrar aqui também, o carro conta a compra duas vezes.',
-            soma:    'Estas linhas são <b>somas e totais</b> que ele escreveu no grupo, não despesas. Se entrarem, o carro conta o gasto duas vezes. Por isso já vêm desmarcadas — servem para você conferir se a minha conta bate com a dele.',
-            receita: 'Estas linhas falam em <b>pago, depósito, crédito, aluguel</b> — pode ser dinheiro que ENTROU, não que saiu. Não lanço como gasto sem você olhar.',
-            tudo:    'Tudo que eu achei, na ordem da conversa.'
-        }[zapFiltro];
+        const precisaDeCliente = t => ['cobrar','dano','desconto','recebido'].includes(t);
+        const carro = carroDoZap();
+        const temLocacao = carro && (carro.locacoes || []).length;
 
         el.innerHTML = `<div class="vd-card">
-            <h4>Achei ${zapAchados.length} mensagens com valor — separei em ${cont.gasto} gastos diferentes</h4>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
-              ${aba('gasto','🧾 Gastos diferentes',cont.gasto)}
-              ${aba('repetida','🔁 Repetidas',cont.repetida)}
-              ${aba('compra','🏷️ Compra do carro',cont.compra)}
-              ${aba('soma','∑ Somas e totais',cont.soma)}
-              ${aba('receita','💰 Pode ser recebimento',cont.receita)}
-              ${aba('tudo','Tudo',zapAchados.length)}
+            <h4>Achei ${zapAchados.length} mensagens com valor</h4>
+            <div class="carro" style="background:#eef2f7;padding:9px 11px;border-radius:6px;font-size:13px">
+              Nem tudo no grupo é gasto do carro. Separei por <b>o que é</b> — e nas linhas de
+              cobrança, <b>de quem</b>. Confira a natureza de cada uma antes de gravar.
             </div>
-            <div class="carro" style="background:#eef2f7;padding:8px 10px;border-radius:6px;font-size:13px">${explica}</div>
-            <div class="carro" style="margin-top:8px">Marcadas agora: <b>${marcados.length}</b> linhas ·
-              somando <b>${fmt(total)}</b></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
+              ${ORDEM.map(t => aba(t, TIPOS[t].rot, conta(t))).join('')}
+              ${aba('repetida','🔁 Repetidas', zapAchados.filter(a => a.repetida).length)}
+              ${aba('tudo','Tudo', zapAchados.length)}
+            </div>
+            ${TIPOS[zapFiltro] ? `<div class="carro" style="background:${TIPOS[zapFiltro].cor || '#eef2f7'};
+                 padding:8px 10px;border-radius:6px;font-size:13px">${TIPOS[zapFiltro].ajuda}</div>` :
+              (zapFiltro === 'repetida' ? `<div class="carro" style="background:#f7f7f7;padding:8px 10px;
+                 border-radius:6px;font-size:13px">O Geraldo posta o orçamento e depois posta de novo quando
+                 paga. Deixei marcada só a primeira de cada. Se alguma aqui for um serviço feito
+                 duas vezes de verdade, mude a natureza dela.</div>` : '')}
+
+            ${!temLocacao && (conta('cobrar') + conta('dano')) ? `<div class="aviso-pend" style="margin-top:8px">
+               🔑 Este carro ainda não tem <b>quem ficou com ele e quando</b> cadastrado. Sem isso eu não
+               consigo saber de quem cobrar as multas — abra o carro na aba
+               <b>🔑 Quem ficou com o carro</b> e preencha os períodos. Enquanto isso, escreva o nome na mão.
+             </div>` : ''}
+
+            <div class="carro" style="margin-top:10px;line-height:1.7">
+              Marcadas: <b>${marcados.length}</b> linhas ·
+              gasto do carro <b>${fmt(totalGastos)}</b> ·
+              a cobrar do cliente <b>${fmt(totalCobrar)}</b> ·
+              recebido <b>${fmt(somaDe('recebido'))}</b> ·
+              desconto <b>${fmt(somaDe('desconto'))}</b> ·
+              fornecedor <b>${fmt(somaDe('fornecedor'))}</b>
+            </div>
             ${maiorSoma ? `<div style="margin-top:6px;padding:8px 10px;border-radius:6px;font-size:13px;
-                 background:${total > maiorSoma.gasto * 1.15 ? '#fdecea' : '#e8f6ee'};
-                 border:1px solid ${total > maiorSoma.gasto * 1.15 ? '#c0392b' : '#1e8449'}">
+                 background:${totalGastos > maiorSoma.gasto * 1.15 ? '#fdecea' : '#e8f6ee'};
+                 border:1px solid ${totalGastos > maiorSoma.gasto * 1.15 ? '#c0392b' : '#1e8449'}">
                  📋 No grupo, o maior total escrito foi <b>${fmt(maiorSoma.gasto)}</b> (${maiorSoma.dia}).
-                 ${total > maiorSoma.gasto * 1.15
-                    ? 'Você está marcando <b>mais</b> que isso — provavelmente ainda tem repetição ou soma marcada.'
-                    : 'Sua conta está dentro do que ele escreveu. Lembre que o grupo pode ter gastos depois dessa data.'}
-               </div>` : ''}
-            <div style="max-height:460px;overflow:auto;margin-top:8px"><table class="mini-table">
-              <thead><tr><th style="width:36px">Usar</th><th style="width:105px">Data</th>
-                <th style="width:100px">Valor</th><th>O que dizia a mensagem</th>
-                <th style="width:120px">Quem mandou</th></tr></thead>
+                 ${totalGastos > maiorSoma.gasto * 1.15
+                    ? 'O gasto do carro que você marcou passou disso — ainda deve ter repetição ou soma marcada.'
+                    : 'O gasto do carro está dentro do que ele escreveu.'}</div>` : ''}
+
+            <div style="max-height:440px;overflow:auto;margin-top:10px"><table class="mini-table">
+              <thead><tr><th style="width:34px">Usar</th><th style="width:100px">Data</th>
+                <th style="width:92px">Valor</th><th>O que dizia</th>
+                <th style="width:150px">O que é</th><th style="width:140px">De quem</th></tr></thead>
               <tbody>${lista.map(({a, i}) => {
-                const cor = a.tipo === 'soma' ? 'background:#fff8e1' :
-                            a.tipo === 'receita' ? 'background:#e8f6ee' :
-                            (a.repetida ? 'background:#f7f7f7' : '');
                 const selo = a.repete > 1 && !a.repetida
                     ? ` <a href="#" onclick="zapMostrarDatas(${i});return false"
-                         style="font-size:11px;color:#b8912b;text-decoration:none;white-space:nowrap"
-                         title="clique para ver as datas">🔁 ${a.repete}×</a>` : '';
-                return `<tr style="${cor}">
+                         style="font-size:11px;color:#b8912b;text-decoration:none">🔁 ${a.repete}×</a>` : '';
+                return `<tr style="background:${TIPOS[a.tipo] ? TIPOS[a.tipo].cor : ''}">
                 <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''}
                     onchange="zapAchados[${i}].usar=this.checked;mostrarZap()"></td>
-                <td><input value="${(a.dia || '').replace(/"/g,'&quot;')}" onchange="zapAchados[${i}].dia=this.value"></td>
+                <td><input value="${escapaHtml(a.dia)}" onchange="zapAchados[${i}].dia=this.value"></td>
                 <td><input type="number" step="0.01" value="${a.gasto}"
                     onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;agruparZap();mostrarZap()"></td>
-                <td><input value="${(a.obs || '').replace(/"/g,'&quot;')}" style="width:78%"
-                    onchange="zapAchados[${i}].obs=this.value">${selo}</td>
-                <td style="font-size:12px;color:#7b8794">${a.quem || ''}</td>
+                <td><input value="${escapaHtml(a.obs)}" style="width:74%"
+                    onchange="zapAchados[${i}].obs=this.value">${selo}
+                    ${a.talvezCliente ? '<div style="font-size:10px;color:#b8912b">⚠️ gasolina/limpeza costuma ser do inquilino — confira</div>' : ''}</td>
+                <td><select onchange="zapTrocarTipo(${i}, this.value)">
+                    ${ORDEM.map(t => `<option value="${t}" ${a.tipo === t ? 'selected' : ''}>${TIPOS[t].rot}</option>`).join('')}
+                    </select></td>
+                <td>${precisaDeCliente(a.tipo)
+                    ? `<input value="${escapaHtml(a.cliente || '')}" list="lista-de-clientes"
+                         placeholder="de quem?" style="width:100%"
+                         onchange="zapAchados[${i}].cliente=this.value;zapAchados[${i}].clienteTravado=true">
+                       ${a.como ? `<div style="font-size:10px;color:#7b8794">${a.como}</div>` : ''}`
+                    : '<span style="color:#c3ccd6">—</span>'}</td>
               </tr>`; }).join('') ||
-                '<tr><td colspan="5" style="padding:14px;color:#7b8794">Nada nesta aba.</td></tr>'}</tbody>
+                '<tr><td colspan="6" style="padding:14px;color:#7b8794">Nada nesta aba.</td></tr>'}</tbody>
             </table></div>
             <div class="vd-rodape">
-              <button class="btn" onclick="gravarZap()">💾 Jogar nos gastos deste carro (${marcados.length})</button>
+              <button class="btn" onclick="gravarZap()">💾 Gravar as ${marcados.length} marcadas</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>a.usar=false);mostrarZap()">Desmarcar tudo</button>
-              <button class="btn btn-small" onclick="agruparZap();mostrarZap()">↩️ Voltar ao que eu sugeri</button>
+              <button class="btn btn-small" onclick="zapAchados.forEach(a=>{a.tipoTravado=false;a.clienteTravado=false});agruparZap();mostrarZap()">↩️ Voltar ao que eu sugeri</button>
             </div>
         </div>`;
     }
 
+    function zapTrocarTipo(i, t) {
+        zapAchados[i].tipo = t;
+        zapAchados[i].tipoTravado = true;                 // não deixo minha regra desfazer a escolha dela
+        zapAchados[i].usar = t !== 'nada';
+        if (['cobrar','dano','desconto','recebido'].includes(t) && !zapAchados[i].cliente) {
+            const d = donoDaLinha(carroDoZap(), zapAchados[i]);
+            if (d) { zapAchados[i].cliente = d.nome; zapAchados[i].tel = d.tel; zapAchados[i].como = d.como; }
+        }
+        mostrarZap();
+    }
+
     function gravarZap() {
-        const sel = document.getElementById('zap-carro');
-        const c = (database.carros || []).find(x => String(x.id) === String(sel && sel.value));
+        const c = carroDoZap();
         if (!c) return;
-        const usar = zapAchados.filter(a => a.usar && a.gasto);
-        if (!usar.length) return;
+        const usar = zapAchados.filter(a => a.usar && a.gasto && a.tipo !== 'nada');
+        if (!usar.length) return alert('Nenhuma linha marcada.');
+
+        // Cada natureza vai para um lugar diferente. Era isso que faltava:
+        // antes tudo caía em Gastos, e a multa do cliente virava prejuízo do carro.
         c.gastosLista = c.gastosLista || [];
-        // nao repito o que ja esta la (mesma data + mesmo valor)
-        const ja = {};
-        c.gastosLista.forEach(g => { ja[(g.dia || '') + '|' + (g.gasto || 0)] = true; });
-        let postos = 0, repetidos = 0;
+        c.debitos     = c.debitos     || [];
+        c.pagamentos  = c.pagamentos  || [];
+
+        const jaGasto = {}; c.gastosLista.forEach(g => jaGasto[(g.dia||'') + '|' + (g.gasto||0)] = true);
+        const jaDeb   = {}; c.debitos.forEach(d => jaDeb[(d.dia||'') + '|' + (d.valor||0)] = true);
+        const jaPag   = {}; c.pagamentos.forEach(x => jaPag[(x.dia||'') + '|' + (x.valor||0)] = true);
+
+        const n = {gasto:0, jg:0, cobrar:0, dano:0, desconto:0, recebido:0, fornecedor:0};
+        let repetidos = 0, semDono = 0;
+
         usar.forEach(a => {
-            const k = a.dia + '|' + a.gasto;
-            if (ja[k]) { repetidos++; return; }
-            c.gastosLista.push({ano: a.ano, dia: a.dia, obs: a.obs, gasto: a.gasto, recebido: 0});
-            ja[k] = true; postos++;
+            const chave = (a.dia || '') + '|' + a.gasto;
+            switch (a.tipo) {
+                case 'gasto': case 'jg': case 'fornecedor': {
+                    if (jaGasto[chave]) { repetidos++; return; }
+                    c.gastosLista.push({ano: a.ano, dia: a.dia, obs: a.obs, gasto: a.gasto, recebido: 0,
+                        assumidoPelaJG: a.tipo === 'jg' || undefined,
+                        fornecedor: a.tipo === 'fornecedor' || undefined});
+                    jaGasto[chave] = true; n[a.tipo]++; break;
+                }
+                case 'cobrar': case 'dano': {
+                    if (jaDeb[chave]) { repetidos++; return; }
+                    if (!a.cliente) semDono++;
+                    c.debitos.push({dia: a.dia, iso: a.iso, desc: a.obs, valor: a.gasto, pago: false,
+                                    cliente: a.cliente || '', tel: a.tel || '',
+                                    natureza: a.tipo === 'dano' ? 'Dano do veículo' : 'Multa / pedágio'});
+                    jaDeb[chave] = true; n[a.tipo]++; break;
+                }
+                case 'desconto': {
+                    if (jaDeb[chave]) { repetidos++; return; }
+                    // crédito do cliente = débito com valor negativo, aparece na conta dele
+                    c.debitos.push({dia: a.dia, iso: a.iso, desc: '🎁 ' + a.obs, valor: -Math.abs(a.gasto),
+                                    pago: false, cliente: a.cliente || '', tel: a.tel || '',
+                                    natureza: 'Desconto ao cliente'});
+                    jaDeb[chave] = true; n.desconto++; break;
+                }
+                case 'recebido': {
+                    if (jaPag[chave]) { repetidos++; return; }
+                    c.pagamentos.push({dia: a.dia, iso: a.iso, obs: a.obs, valor: a.gasto,
+                                       cliente: a.cliente || ''});
+                    jaPag[chave] = true; n.recebido++; break;
+                }
+            }
         });
+
         saveData();
+        const linha = (q, txt) => q ? `<li>${q} ${txt}</li>` : '';
         const el = document.getElementById('zap-resultado');
         if (el) el.innerHTML = `<div class="aviso-versao" style="background:#f3faf5;border-color:#cfe8d8">
-            ✅ <b>Pronto!</b> ${postos} gasto(s) entraram na aba 💸 Gastos do
-            <b>${(c.marca || '') + ' ' + (c.placa || '')}</b>${repetidos ? ` · ${repetidos} já estavam lá e eu não repeti.` : ''}
-            <button class="btn btn-small" style="margin-left:10px" onclick="openCarroModal(${c.id})">Abrir o carro</button>
+            ✅ <b>Pronto!</b> No <b>${(c.marca || '') + ' ' + (c.placa || '')}</b>:
+            <ul style="margin:8px 0 0 18px;line-height:1.7">
+              ${linha(n.gasto, 'gasto(s) do carro na aba 💸 Gastos')}
+              ${linha(n.jg, 'gasto(s) assumidos pela JG na aba 💸 Gastos')}
+              ${linha(n.fornecedor, 'acerto(s) com fornecedor na aba 💸 Gastos')}
+              ${linha(n.cobrar, 'multa(s)/pedágio na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
+              ${linha(n.dano, 'dano(s) na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
+              ${linha(n.desconto, 'desconto(s) lançados como crédito do cliente')}
+              ${linha(n.recebido, 'recebimento(s) na aba 💰 Pagamentos')}
+            </ul>
+            ${repetidos ? `<div style="margin-top:6px">${repetidos} linha(s) já estavam lá e eu não repeti.</div>` : ''}
+            ${semDono ? `<div class="aviso-pend" style="margin-top:8px">⚠️ <b>${semDono}</b> cobrança(s)
+               ficaram <b>sem nome</b>. Elas entram na Cobrança como do dono do carnê. Para acertar,
+               cadastre os períodos na aba <b>🔑 Quem ficou com o carro</b> e escreva o nome no débito.</div>` : ''}
+            <button class="btn btn-small" style="margin-top:8px" onclick="openCarroModal(${c.id})">Abrir o carro</button>
         </div>`;
         zapAchados = [];
     }
@@ -3829,7 +4011,11 @@
                 const tel = (c.carnes && c.carnes[0] && c.carnes[0].telefone) || '';
                 (c.debitos || []).forEach(d => {
                     if (d.pago || !Number(d.valor)) return;
-                    add(dono, tel, carro, {tipo: d.desc || 'Débito', carro, dias: 0, valor: Number(d.valor) || 0, multa: 0});
+                    // quem deve é quem estava com o carro naquele dia; o dono do carnê é só o
+                    // último recurso, senão a multa do inquilino cai no colo de outra pessoa
+                    const naData = clienteNaData(c, d.iso) || {};
+                    add(d.cliente || naData.nome || dono, d.tel || naData.tel || tel, carro,
+                        {tipo: d.desc || 'Débito', carro, dias: 0, valor: Number(d.valor) || 0, multa: 0});
                 });
             }
         });
