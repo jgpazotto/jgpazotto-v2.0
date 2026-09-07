@@ -1,0 +1,51 @@
+{
+ "atualizado_em": "2026-09-07",
+ "geradoEm": "2026-09-07",
+ "veiculos": [
+  {
+   "id": "v-001",
+   "titulo": "Lincoln MKZ Hybrid 2014 — Texas",
+   "ano": 2014,
+   "km": 50350,
+   "cambio": "Automático",
+   "combustivel": "Híbrido",
+   "cor": "RED",
+   "local": "EUA",
+   "moeda": "USD",
+   "situacao": "disponivel",
+   "descricao": "Lincoln MKZ Hybrid 2014, vermelho, revisado e com pneus novos. Banco de couro, teto solar, start/stop e porta-malas elétrico. Seguro e documentação em dia. Disponível no Texas.",
+   "fotos": [
+    "imagens/anuncios/v-001-1.jpg",
+    "imagens/anuncios/v-001-2.jpg",
+    "imagens/anuncios/v-001-3.jpg",
+    "imagens/anuncios/v-001-4.jpg",
+    "imagens/anuncios/v-001-5.jpg",
+    "imagens/anuncios/v-001-6.jpg"
+   ]
+  }
+ ],
+ "carros": [
+  {
+   "id": "v-001",
+   "titulo": "Lincoln MKZ Hybrid 2014 — Texas",
+   "ano": 2014,
+   "km": 50350,
+   "cambio": "Automático",
+   "combustivel": "Híbrido",
+   "cor": "RED",
+   "local": "EUA",
+   "moeda": "USD",
+   "situacao": "disponivel",
+   "descricao": "Lincoln MKZ Hybrid 2014, vermelho, revisado e com pneus novos. Banco de couro, teto solar, start/stop e porta-malas elétrico. Seguro e documentação em dia. Disponível no Texas.",
+   "fotos": [
+    "imagens/anuncios/v-001-1.jpg",
+    "imagens/anuncios/v-001-2.jpg",
+    "imagens/anuncios/v-001-3.jpg",
+    "imagens/anuncios/v-001-4.jpg",
+    "imagens/anuncios/v-001-5.jpg",
+    "imagens/anuncios/v-001-6.jpg"
+   ]
+  }
+ ],
+ "imoveis": []
+}

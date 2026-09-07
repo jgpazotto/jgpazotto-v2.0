@@ -2601,7 +2601,7 @@
             veiculos.push(soSeTiver({
                 id, titulo: a.titulo || `${c.marca || ''} ${c.ano || ''} ${c.cor || ''}`.trim(),
                 ano: num(c.ano), km: num(c.km), cambio: a.cambio, combustivel: a.combustivel,
-                cor: c.cor, local: 'EUA', preco: num(a.preco), moeda: 'USD',
+                cor: c.cor, local: 'EUA', preco: num(a.preco) || undefined, moeda: 'USD',
                 situacao: a.situacao || 'disponivel', destaque: !!a.destaque || undefined,
                 descricao: a.texto,
                 fotos: (c.fotos || []).map((_, k) => `imagens/anuncios/${id}-${k + 1}.jpg`)
@@ -2617,7 +2617,7 @@
                 tipo: m.tipo, quartos: num(a.quartos), banheiros: num(a.banheiros),
                 vagas: num(a.vagas), area_m2: num(a.area), local,
                 finalidade: (a.finalidade || 'Aluguel').toLowerCase(),
-                preco: num(a.preco), moeda: m.moeda || 'BRL',
+                preco: num(a.preco) || undefined, moeda: m.moeda || 'BRL',
                 condominio: num(a.condominio), iptu_mes: num(a.iptuMes),
                 mobiliado: a.mobiliado || undefined, aceita_pet: a.aceitaPet || undefined,
                 unidades: (Number(m.unidades) > 1 ? Number(m.unidades) : undefined),
