@@ -471,8 +471,13 @@
             <!-- BACKUP -->
             <div id="backup" class="module">
                 <div class="section">
-                    <h3>💾 Backup & Restauração</h3>
-                    <button class="btn" onclick="makeBackup()">💾 Fazer Backup</button>
+                    <h3>💾 Backup &amp; Restauração</h3>
+                    <p style="margin:0 0 6px 0" id="ultimoBackup"></p>
+                    <p style="margin:0 0 14px 0;font-size:13px;color:#555">
+                        O sistema guarda sozinho uma cópia por dia na sua pasta <b>Downloads</b>,
+                        na primeira vez que você salvar alguma coisa no dia.
+                    </p>
+                    <button class="btn" onclick="makeBackup()">💾 Fazer Backup agora</button>
                     <button class="btn" onclick="restaurarOutubro()">🚗 Restaurar frota de outubro/2024</button>
                     <button class="btn" onclick="document.getElementById('importFile').click()">📥 Importar Backup</button>
                     <input type="file" id="importFile" style="display: none;" accept=".json" onchange="handleImport(event)">
@@ -485,6 +490,11 @@
         </div>
     </div>
 </div>
+
+<!-- aviso do backup automático (aparece em qualquer tela) -->
+<div id="avisoBackup" style="display:none;position:fixed;right:16px;bottom:16px;z-index:9999;
+     max-width:320px;background:#e8f6ee;border:1px solid #1e8449;color:#14532d;
+     padding:12px 14px;border-radius:10px;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.18)"></div>
 
 <!-- MODAIS -->
 
@@ -1360,6 +1370,7 @@
             console.error(e);
         }
         refreshAll();
+        backupAutomatico();
     }
 
     function refreshAll() {
@@ -1375,6 +1386,7 @@
         displayCobranca();
         displayAnuncios();
         checarDadosNovos();
+        mostrarUltimoBackup();
         updateKPIs();
     }
 
@@ -3872,13 +3884,62 @@
         alert('✅ Frota restaurada! ' + database.carros.length + ' carros carregados.');
     }
 
-    function makeBackup() {
-        const backup = JSON.stringify(database);
+    // ===== CÓPIA DE SEGURANÇA =====
+    // Baixa o arquivo de verdade (Blob). O data: URI travava com 2 MB de dados.
+    // Sem alert() no caminho automático: alert congela a página.
+    const BKP_CHAVE = 'jgpazotto_ultimo_backup';
+
+    function baixarBackupArquivo(prefixo) {
+        const txt = JSON.stringify(database);
+        const blob = new Blob([txt], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(backup);
-        link.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+        link.href = url;
+        link.download = (prefixo || 'backup_jgpazotto_') + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(link);
         link.click();
-        alert('✅ Backup realizado!');
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        localStorage.setItem(BKP_CHAVE, new Date().toISOString().slice(0, 10));
+        mostrarUltimoBackup();
+        return Math.round(txt.length / 1024);
+    }
+
+    function makeBackup() {
+        const kb = baixarBackupArquivo('backup_jgpazotto_');
+        alert('✅ Cópia de segurança baixada (' + kb + ' KB).\n\nEla foi para a pasta Downloads.');
+    }
+
+    // Uma vez por dia, sozinho. Roda depois de salvar (que é um clique dela,
+    // então o Chrome não bloqueia o download).
+    function backupAutomatico() {
+        try {
+            const hoje = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem(BKP_CHAVE) === hoje) return;
+            if (!database || !(database.carros || []).length) return;   // nada para salvar ainda
+            baixarBackupArquivo('backup_automatico_');
+            const av = document.getElementById('avisoBackup');
+            if (av) {
+                av.style.display = 'block';
+                av.innerHTML = '💾 Guardei sozinha uma cópia de segurança de hoje na sua pasta <b>Downloads</b>.';
+                setTimeout(() => { av.style.display = 'none'; }, 12000);
+            }
+        } catch (e) { console.warn('backup automático não foi', e); }
+    }
+
+    function mostrarUltimoBackup() {
+        const el = document.getElementById('ultimoBackup');
+        if (!el) return;
+        const d = localStorage.getItem(BKP_CHAVE);
+        if (!d) {
+            el.innerHTML = '<span style="color:#c0392b">⚠️ Nenhuma cópia de segurança ainda.</span>';
+            return;
+        }
+        const [a, m, dia] = d.split('-');
+        const dias = Math.floor((new Date(new Date().toISOString().slice(0,10)) - new Date(d)) / 86400000);
+        const quando = dias === 0 ? 'hoje' : (dias === 1 ? 'ontem' : 'há ' + dias + ' dias');
+        const cor = dias > 3 ? '#c0392b' : '#1e8449';
+        el.innerHTML = '<span style="color:' + cor + '">Última cópia: <b>' + dia + '/' + m + '/' + a + '</b> (' + quando + ')</span>';
     }
 
     function handleImport(event) {
