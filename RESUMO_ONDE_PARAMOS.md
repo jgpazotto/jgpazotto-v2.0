@@ -1024,3 +1024,57 @@ com 83×42px (alvo de toque bom).
 ⚠️ **Para testar uma lista é preciso ATIVAR o módulo antes** — `.module` sem `.active` fica
 `display:none`, e tudo mede 0. Abrir a gaveta, clicar no link do menu e só então chamar
 `displayCarros()` (a função de exibir não precisa de `event`; `switchModule` precisa).
+
+
+## 👤 08/09 parte 5 — documento do cliente, quem responde pela batida, a conta da pessoa (`9c0694b`)
+
+Ela reparou, olhando as fotos do grupo, que **tem foto que é documento do CARRO e tem foto que é
+documento do CLIENTE** (viu uma CNH), e perguntou: *"clicando aqui já vai automático ou tenho que
+salvar algo?"*
+
+**Resposta que foi dada e agora está escrita na tela:** clicar na lupa só **marca**; quem grava é
+o botão **💾 Gravar** no fim da lista. A lupa agora mostra em amarelo:
+*"Isto só marca. Para valer, feche e clique em 💾 Gravar no fim da lista."*
+
+### 4º destino: 📄 Documento do cliente
+`ZAP_DEST.docli` (roxo `#6b3fa0`). Quando escolhido, a lupa abre um campo **"Documento de quem?"**
+(`#zap-dono-doc`, datalist `lista-de-clientes`) já preenchido por `zapDonoDoc(a)` =
+`a.docDe` → `a.cliente` → `clienteNaData(carro, a.iso)`. Ao gravar, vai para
+`cliente.documentos = [{titulo, dia, iso, carro, placa, foto, origem}]` (base64 1400px, **sem**
+marca d'água). Se a pessoa não existe, **crio a ficha** e aviso no relatório.
+`mesmoNome()`/`nomeChave()` comparam nome sem acento/caixa, aceitando nome completo x primeiro nome.
+
+### Regra nova: foto de ficha não precisa da linha
+Antes, `gravarZap` só olhava fotos das linhas marcadas, e marcar uma foto marcava a linha —
+o que criaria gasto que ela não quer. Agora: **anúncio, vistoria e documento valem sozinhos**;
+só o **comprovante** exige a linha marcada (e só ele marca a linha sozinho).
+A de-dup virou `zapFotosUsadas: 'destino|arquivo'`, para a mesma foto poder ser documento
+**e** anúncio.
+
+### Quem responde pela batida
+Na Ficha do carro, ao lado da perda total: **💥 Data da batida** (`carro-databatida` →
+`c.dataBatida`) e **💥 Quem era o responsável** (`carro-responsavel` → `c.responsavelBatida`).
+`sugerirResponsavel()` olha `clienteNaData({...c, locacoes: cLocacoes}, data)` e preenche
+sozinho, escrevendo embaixo quem estava com o carro naquele dia — ou avisando que faltam os
+períodos de locação.
+
+### A conta da pessoa (aba nova na ficha do cliente)
+**🔑 Períodos e cobranças** (`#cli-conta`, montada por `resumoDoCliente(nome)`), varrendo
+**todos** os carros:
+- faixa vermelha se a pessoa é `responsavelBatida` de algum carro, com a data e o que o seguro pagou;
+- 🔑 todos os períodos em que ela ficou com carro (carro, de, até, **contagem de dias**, obs);
+- 🎫 só as multas/danos/descontos dela, com **total em aberto**;
+- 💵 carnês e o que falta (reaproveita `carrosDoCliente`).
+A aba **📷 Fotos/Docs** ganhou a lista dos documentos vindos do WhatsApp (miniatura, título,
+data, de qual carro, lupa em `verDocGrande`).
+
+### ⚠️ BUG SÉRIO CORRIGIDO NO CAMINHO
+`saveCliente()` montava o objeto **do zero** — exatamente o mesmo erro que `saveCarro` tinha em
+04/09. Qualquer campo que a tela não conhecesse era apagado ao salvar (os `documentos` sumiriam
+no primeiro "Salvar Cliente"). Agora começa com `...anterior`.
+**Procurar esse padrão nos outros save\*()**: imóvel, fornecedor, funcionário.
+
+### Conferido com Playwright (dados de mentira, sem tocar nos dela)
+sinistro aparece com o valor do seguro · período de 1 nov 24 → 22 jan 25 conta **82 dias** ·
+só os débitos dela aparecem (o "Outro Fulano" não) · total em aberto $ 35,50 correto ·
+documentos na ficha · 4 botões na lupa, com o campo "de quem?" e o aviso de gravar.

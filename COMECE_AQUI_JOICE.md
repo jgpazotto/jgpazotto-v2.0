@@ -103,6 +103,42 @@ Ou seja: você já pode mandar foto do WhatsApp direto para o anúncio hoje.
 
 ---
 
+## Respondendo a sua pergunta: clicar só MARCA
+
+Quando você clica em "Comprovante", "Vistoria" ou "Anúncio" dentro da foto grande, eu só
+**anoto** a sua escolha. **O que grava de verdade é o botão 💾 Gravar no fim da lista.**
+Agora está escrito lá dentro, em amarelo, para você não ficar na dúvida.
+
+## 📄 Documento do cliente — o quarto botão
+
+Você tem razão: tem foto que é do carro e tem foto que é da pessoa (a CNH que você viu).
+Agora, dentro da foto grande, tem um quarto botão: **📄 Documento do cliente**.
+
+Ao clicar, aparece um campo **"Documento de quem?"** — e ele **já vem preenchido** com quem
+estava com o carro naquela data (se você tiver cadastrado o período). A foto vai direto para a
+**ficha da pessoa**, na aba 📷 Fotos/Docs, guardando de qual carro e de que dia ela veio.
+Se a pessoa ainda não tiver ficha, eu crio e te aviso.
+
+## 💥 Quem responde pela batida
+
+Na ficha do carro, ao lado da perda total, tem agora **Data da batida** e **Quem era o
+responsável**. Quando você põe a data, eu procuro quem estava com o carro naquele dia e
+**preencho sozinha** — é para isso que servem os períodos de locação.
+
+## 🔑 A conta de cada pessoa
+
+Na ficha do cliente tem uma aba nova: **🔑 Períodos e cobranças**. Ali, num lugar só, aparece:
+
+- um aviso vermelho se aquela pessoa é a **responsável por um sinistro**, com a data e quanto o seguro pagou
+- **todos os períodos** em que ela ficou com carro — qual carro, de quando até quando, e **quantos dias**
+- **as multas, pedágios e danos dela**, com o total em aberto
+- os carnês e o que falta pagar
+
+É exatamente o que você descreveu: a CNH na ficha dela, com as datas em que ficou com o carro
+e as multas pelas quais ela responde.
+
+---
+
 ## 📱 O celular ficou simples
 
 **Cada carro virou um cartão.** Em vez daquela tabela larga que saía da tela, agora cada carro
