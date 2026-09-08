@@ -3877,6 +3877,9 @@
     // A exportacao COM midia traz o _chat.txt e os arquivos. O texto nomeia cada um:
     //   [7/25/22, 3:39:29 PM] Geraldo: <anexado: 00000006-PHOTO-2022-07-25-15-39-29.jpg>
     // Guardo a posicao de cada anexo e caso com a posicao da linha de dinheiro.
+    let zapMsgs = [];            // as mensagens da conversa, para reler sem reprocessar
+    let zapLocacoes = [];        // períodos "quem ficou com o carro" achados na conversa
+    let zapPerdaTotal = null;    // {iso, dia, quem} se o grupo virou "Total Loss"
     let zapArquivos = {};        // nome do arquivo -> File escolhido por ela
     let zapUrls = {};            // nome -> endereco temporario (criado UMA vez, senao vaza memoria)
     const ZAP_ANTES = 2, ZAP_DEPOIS = 6;   // janela medida na conversa do C-MAX AZUL
@@ -4248,6 +4251,17 @@
         let ordem = 'MD';
         for (const x of msgs) { if (x.a > 12) { ordem = 'DM'; break; } if (x.b > 12) { ordem = 'MD'; break; } }
 
+        // 2b) carimba a data em cada mensagem (a locação usa isso também)
+        msgs.forEach(x => {
+            const d = ordem === 'DM' ? x.a : x.b;
+            const me = ordem === 'DM' ? x.b : x.a;
+            const an = x.ano < 100 ? x.ano + 2000 : x.ano;
+            if (me < 1 || me > 12) { x.iso = ''; x.diaBonito = ''; return; }
+            x.iso = an + '-' + String(me).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            x.diaBonito = d + ' ' + MES[me - 1] + '. ' + String(an).slice(2);
+        });
+        zapMsgs = msgs;
+
         // 3) procura dinheiro em cada linha
         // quais fotos foram mandadas PERTO desta mensagem
         const fotosPerto = k => {
@@ -4286,6 +4300,149 @@
             });
         });
         agruparZap();
+        acharLocacoesZap();
+        mostrarZap();
+    }
+
+    // ===== QUEM FICOU COM O CARRO, LIDO DA PRÓPRIA CONVERSA =====
+    // Descoberto lendo o grupo do C-MAX AZUL: o Geraldo RENOMEIA o grupo com o nome de
+    // quem está com o carro — "CMax 13 Blue 9DHW447 Daniel" — e tira o nome quando o
+    // carro volta. Isso é a linha do tempo inteira, de graça, em todo grupo dele.
+    // Onde o título não tem nome, as frases completam:
+    // "Carro entregue a X", "X pegou carro", "Carro devolvido X".
+    const ZAP_RENOMEIA = /mudou o nome do grupo para\s*[“"'‘](.+?)[”"'’]\s*$/i;
+    // palavras de SITUAÇÃO, nunca nome de gente
+    const ZAP_STATUS = /^(sold|lv|tx|pt|total|loss|perda|vendido|venda|vendida|oficina|garagem|dispon[íi]vel|livre|parado|novo|new|hybrid|h[íi]brido|car|carro|van|trailer)$/i;
+    const ZAP_NAO_NOME = /^(carro|hoje|ontem|amanh[ãa]|dia|para|pro|com|sem|at[ée]|pela|pelo|manh[ãa]|tarde|noite|agora)$/i;
+    const ZAP_ENTREGA = /(?:carro\s+)?entregu[ei][a-z]*(?:\s+(?:a|ao|para|pro))?\s+([A-Za-zÀ-ÿ]{3,})/i;
+    const ZAP_PEGOU   = /([A-Za-zÀ-ÿ]{3,})\s+(?:pegou|levou|ficou com)\s+(?:o\s+)?carro/i;
+    const ZAP_DEVOLVE = /(?:carro\s+)?devolvid[oa]\s*([A-Za-zÀ-ÿ]{3,})?/i;
+
+    function acharLocacoesZap() {
+        zapLocacoes = []; zapPerdaTotal = null;
+        if (!zapMsgs.length) return;
+
+        // 1) todos os nomes que o grupo já teve, com data
+        const titulos = [];
+        zapMsgs.forEach(x => {
+            if (!x.iso) return;
+            const m = x.linhas.join(' ').replace(/‎/g, '').trim().match(ZAP_RENOMEIA);
+            if (m) titulos.push({iso: x.iso, dia: x.diaBonito, titulo: m[1].trim()});
+        });
+
+        // 2) o que é do CARRO e o que é de GENTE?
+        //    O que aparece em mais da metade dos títulos é do carro (modelo, cor, placa, ano).
+        //    O que aparece pouco é nome de pessoa. Serve para qualquer grupo, sem lista fixa.
+        const conta = {};
+        titulos.forEach(t => {
+            const visto = {};
+            t.titulo.split(/\s+/).forEach(p => {
+                const k = nomeChave(p);
+                if (!k || visto[k]) return;
+                visto[k] = 1; conta[k] = (conta[k] || 0) + 1;
+            });
+        });
+        const metade = Math.max(2, Math.ceil(titulos.length * 0.5));
+        const c = carroDoZap();
+        const doCarro = {};
+        [c && c.marca, c && c.cor, c && c.placa, c && c.placaAntiga, c && c.ano].forEach(v =>
+            String(v || '').split(/[^A-Za-zÀ-ÿ0-9]+/).forEach(p => {
+                const k = nomeChave(p); if (k) doCarro[k] = 1; }));
+        const ehDoCarro = p => {
+            const k = nomeChave(p);
+            if (!k || k.length < 3) return true;
+            if (doCarro[k]) return true;
+            if ((conta[k] || 0) >= metade) return true;
+            if (ZAP_STATUS.test(p) || ZAP_NAO_NOME.test(p)) return true;
+            if (/\d/.test(p)) return true;                 // ano, placa, modelo com número
+            return false;
+        };
+        const soGente = t => t.split(/\s+/).filter(p => !ehDoCarro(p)).join(' ').trim();
+
+        // 3) uma linha do tempo de eventos
+        const eventos = titulos.map(t => ({iso: t.iso, dia: t.dia, nome: soGente(t.titulo),
+                                           fonte: 'nome do grupo'}));
+        zapMsgs.forEach(x => {
+            if (!x.iso) return;
+            x.linhas.forEach(bruta => {
+                const t = String(bruta || '').replace(/‎/g, '').trim();
+                if (!t || /mudou o nome do grupo/i.test(t)) return;
+                let m = t.match(ZAP_PEGOU);
+                if (m && !ehDoCarro(m[1])) return eventos.push({iso: x.iso, dia: x.diaBonito, nome: m[1], fonte: 'frase "pegou o carro"'});
+                m = t.match(ZAP_ENTREGA);
+                if (m && !ehDoCarro(m[1])) return eventos.push({iso: x.iso, dia: x.diaBonito, nome: m[1], fonte: 'frase "carro entregue"'});
+                if (ZAP_DEVOLVE.test(t)) {
+                    // "20/12 devolvido" é o Geraldo anotando um dia ANTERIOR — não fecha nada hoje
+                    if (/\b\d{1,2}\/\d{1,2}\b/.test(t)) return;
+                    const q = t.match(ZAP_DEVOLVE);
+                    return eventos.push({iso: x.iso, dia: x.diaBonito, nome: '', fonte: 'frase "carro devolvido"',
+                                         devolveu: (q && q[1] && !ehDoCarro(q[1])) ? q[1] : ''});
+                }
+            });
+        });
+        eventos.sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0);
+
+        // 4) vira período: cada nome novo abre, o próximo evento fecha
+        let atual = null, ultimoIso = '';
+        eventos.forEach(ev => {
+            const nome = ev.nome || '';
+            if (atual && mesmoNome(atual.cliente, nome)) { ultimoIso = ev.iso; return; }  // mesma pessoa
+            // "Carro devolvido Fulano" sem período aberto: alguém ficou com o carro e
+            // ninguém anotou a saída. Abro do último evento até aqui, para ela conferir.
+            if (!atual && !nome && ev.devolveu) {
+                zapLocacoes.push({cliente: ev.devolveu, tel: '', de: ultimoIso || ev.iso, ate: ev.iso,
+                                  obs: 'só achei a devolução — confira a data de início'});
+                ultimoIso = ev.iso;
+                return;
+            }
+            if (atual) { atual.ate = ev.iso; atual = null; }
+            if (nome) {
+                atual = {cliente: nome, tel: '', de: ev.iso, ate: '', obs: 'achei pelo ' + ev.fonte};
+                zapLocacoes.push(atual);
+            }
+            ultimoIso = ev.iso;
+        });
+        zapLocacoes.sort((a, b) => a.de < b.de ? -1 : a.de > b.de ? 1 : 0);
+
+        // 5) o carro virou perda total? o nome do grupo conta.
+        const tl = titulos.find(t => /total\s*loss|perda\s*total/i.test(t.titulo));
+        if (tl) {
+            const antes = zapLocacoes.filter(p => p.de <= tl.iso);
+            zapPerdaTotal = {iso: tl.iso, dia: tl.dia,
+                             quem: antes.length ? antes[antes.length - 1].cliente : ''};
+        }
+    }
+
+    function gravarLocacoesZap() {
+        const c = carroDoZap();
+        if (!c) return alert('Escolha o carro primeiro.');
+        c.locacoes = c.locacoes || [];
+        let novos = 0, jaTinha = 0;
+        zapLocacoes.forEach(l => {
+            if (!l.cliente || !l.de) return;
+            if (c.locacoes.some(x => mesmoNome(x.cliente, l.cliente) && x.de === l.de)) { jaTinha++; return; }
+            c.locacoes.push({cliente: l.cliente, tel: l.tel || '', de: l.de, ate: l.ate || '', obs: l.obs || ''});
+            novos++;
+        });
+        saveData();
+        alert('✅ Gravei ' + novos + ' período(s) na aba 🔑 Quem ficou com o carro.' +
+              (jaTinha ? '\n' + jaTinha + ' já estavam lá e eu não repeti.' : '') +
+              '\n\nAgora as multas e os danos sabem de quem são: abra o carro, ou a ficha da pessoa' +
+              ' na aba 🔑 Períodos e cobranças.');
+        mostrarZap();
+    }
+
+    function gravarPerdaTotalZap() {
+        const c = carroDoZap();
+        if (!c || !zapPerdaTotal) return;
+        c.dataBatida = zapPerdaTotal.iso;
+        if (zapPerdaTotal.quem) c.responsavelBatida = zapPerdaTotal.quem;
+        if (!c.status || /alugad|garagem|oficina/i.test(c.status)) c.status = 'PT';
+        saveData();
+        alert('✅ Marquei no carro: perda total em ' + zapPerdaTotal.dia +
+              (zapPerdaTotal.quem ? ', responsável ' + zapPerdaTotal.quem : '') +
+              '.\n\nFalta você pôr o valor que o seguro pagou, na Ficha do carro' +
+              ' (campo 🚑 Perda total).');
         mostrarZap();
     }
 
@@ -4376,6 +4533,7 @@
         return ZAP_ORDEM.map(t => aba(t, TIPOS[t].rot, conta(t))).join('') +
                aba('repetida', '🔁 Repetidas', zapAchados.filter(a => a.repetida).length) +
                (antigas ? aba('antigas', '⏮ Já importadas antes', antigas) : '') +
+               (zapLocacoes.length ? aba('locacoes', '🔑 Quem ficou com o carro', zapLocacoes.length) : '') +
                aba('tudo', 'Tudo', zapAchados.length);
     }
 
@@ -4413,6 +4571,52 @@
         if (b) b.textContent = '💾 Gravar as ' + zapAchados.filter(x => x.usar).length + ' marcadas';
     }
 
+    // A tela dos períodos: é o que faz a cobrança saber de quem é cada multa.
+    function zapHtmlLocacoes() {
+        const c = carroDoZap();
+        const linhas = zapLocacoes.map((l, i) => `<tr>
+            <td><input value="${escapaHtml(l.cliente || '')}" list="lista-de-clientes"
+                 onchange="zapLocacoes[${i}].cliente=this.value"></td>
+            <td><input type="date" value="${l.de || ''}" onchange="zapLocacoes[${i}].de=this.value"></td>
+            <td><input type="date" value="${l.ate || ''}" onchange="zapLocacoes[${i}].ate=this.value"></td>
+            <td style="font-size:11px;color:#7b8794">${escapaHtml(l.obs || '')}</td>
+            <td><button class="del" onclick="zapLocacoes.splice(${i},1);mostrarZap()">✕</button></td>
+          </tr>`).join('');
+        return `<div class="vd-card">
+          <h4>🔑 Achei ${zapLocacoes.length} período(s) na conversa</h4>
+          <div class="carro" style="background:#eef2f7;padding:10px 12px;border-radius:6px;font-size:13px;line-height:1.6">
+            Isto eu li do <b>próprio grupo</b>: o Geraldo <b>renomeia o grupo</b> com o nome de quem
+            está com o carro e tira o nome quando o carro volta. Onde o título não tinha nome, usei as
+            frases <i>"carro entregue a…"</i>, <i>"… pegou carro"</i> e <i>"carro devolvido …"</i>.<br>
+            <b>Confira as datas antes de gravar</b> — onde eu não tive certeza, escrevi na coluna da direita.
+          </div>
+
+          ${zapPerdaTotal ? `<div class="aviso-pend" style="background:#fdecea;border-color:#c0392b;color:#7d241a;margin-top:10px">
+             💥 <b>Este carro virou perda total.</b> O grupo passou a se chamar "Total Loss" em
+             <b>${escapaHtml(zapPerdaTotal.dia)}</b>${zapPerdaTotal.quem ? `, e quem estava com o carro era
+             <b>${escapaHtml(zapPerdaTotal.quem)}</b>` : ''}.
+             <button class="btn btn-small" style="margin-top:8px" onclick="gravarPerdaTotalZap()">
+               💥 Marcar isso na ficha do carro</button>
+           </div>` : ''}
+
+          <table class="mini-table" style="margin-top:12px">
+            <thead><tr><th>Quem ficou com o carro</th><th style="width:150px">De</th>
+              <th style="width:150px">Até</th><th>Como eu achei</th><th style="width:44px"></th></tr></thead>
+            <tbody>${linhas || '<tr><td colspan="5" style="padding:12px;color:#7b8794">Nada achado.</td></tr>'}</tbody>
+          </table>
+
+          <div class="vd-rodape">
+            <button class="btn" onclick="gravarLocacoesZap()">💾 Gravar os ${zapLocacoes.length} períodos no carro</button>
+            <button class="btn btn-small" onclick="zapLocacoes.push({cliente:'',tel:'',de:'',ate:'',obs:'escrito por você'});mostrarZap()">➕ Mais uma linha</button>
+            <button class="btn btn-small" onclick="acharLocacoesZap();mostrarZap()">↩️ Voltar ao que eu achei</button>
+          </div>
+          <p style="font-size:12px;color:#7b8794;margin-top:8px">
+            Depois de gravar, abra a ficha de qualquer uma dessas pessoas na aba
+            <b>🔑 Períodos e cobranças</b>: as multas e os danos do período dela já aparecem no nome dela.
+            ${c ? '' : '<br><b>Escolha o carro lá em cima antes de gravar.</b>'}</p>
+        </div>`;
+    }
+
     function mostrarZap() {
         const el = document.getElementById('zap-resultado');
         if (!el) return;
@@ -4430,6 +4634,13 @@
         const corte = carro && carro.zapUltimaData;
         const antigas = zapAchados.filter(a => a.jaImportado).length;
         const conta = t => zapVivas().filter(a => a.tipo === t).length;
+
+        if (zapFiltro === 'locacoes') {
+            el.innerHTML = `<div id="zap-abas" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">
+                ${zapHtmlAbas()}</div>` + zapHtmlLocacoes();
+            if (yPagina) window.scrollTo(0, yPagina);
+            return;
+        }
 
         const lista = zapAchados.map((a, i) => ({a, i}))
             .filter(({a}) => zapFiltro === 'tudo' ? true
