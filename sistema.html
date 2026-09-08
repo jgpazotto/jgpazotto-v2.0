@@ -228,9 +228,58 @@
             .menu-link { font-size: 15px; padding: 13px 14px; }
             .header { gap: 10px; padding: 12px 14px; }
             .header h1 { font-size: 17px; }
-            .modal-content { max-width: calc(100vw - 16px); }
-            .tabs { gap: 4px; }
-            .tab-btn { font-size: 12px; padding: 8px 10px; }
+            .modal-content { max-width: calc(100vw - 16px); padding: 16px 14px; }
+
+            /* Os filtros eram 12 bolinhas em 7 fileiras e empurravam a lista
+               para fora da tela. Agora é UMA fileira que rola de lado. */
+            .filtro-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px;
+                -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .filtro-bar::-webkit-scrollbar { display: none; }
+            .filtro-bar button { flex: 0 0 auto; padding: 9px 15px; font-size: 14px; }
+
+            /* As 11 abas da ficha do carro, idem: uma fileira que rola. */
+            .tabs { flex-wrap: nowrap; overflow-x: auto; gap: 4px;
+                -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .tabs::-webkit-scrollbar { display: none; }
+            .tab-btn { flex: 0 0 auto; white-space: nowrap; font-size: 13px; padding: 9px 12px; }
+
+            .section { padding: 14px; border-radius: 10px; margin-bottom: 16px; }
+            .section h3 { font-size: 17px; margin-bottom: 14px; padding-bottom: 8px; }
+            .section > input[type="search"] { font-size: 16px; }
+
+            /* ===== A LISTA VIRA CARTÃO =====
+               11 colunas não cabem em 390px: a tabela saía da tela e os botões de
+               abrir o carro ficavam do lado de fora. Cada linha vira um cartão e
+               cada valor mostra o nome da coluna do lado (data-rot, posto por
+               rotularTabelas()). */
+            .section > table { display: block; margin-top: 12px; }
+            .section > table > thead { display: none; }
+            .section > table > tbody { display: block; }
+            .section > table > tbody > tr {
+                display: block; background: #fff; border: 1px solid #e3e8ee;
+                border-left: 4px solid var(--secondary); border-radius: 10px;
+                padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+            .section > table > tbody > tr > td {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 12px; text-align: right; padding: 5px 0; border: 0; font-size: 14px; }
+            .section > table > tbody > tr > td::before {
+                content: attr(data-rot); color: #7b8794; font-size: 11px; font-weight: 600;
+                text-transform: uppercase; letter-spacing: .4px; text-align: left; flex: 0 0 auto; }
+            .section > table > tbody > tr > td[data-rot=""]::before { display: none; }
+            .section > table > tbody > tr > td.cel-vazia { display: none; }
+            .section > table > tbody > tr > td:first-child {
+                font-size: 17px; font-weight: 700; color: var(--primary);
+                justify-content: flex-start; border-bottom: 1px solid #eef2f7;
+                padding-bottom: 9px; margin-bottom: 6px; }
+            .section > table > tbody > tr > td:first-child::before { display: none; }
+            .section > table > tbody > tr > td:last-child {
+                gap: 8px; padding-top: 11px; margin-top: 8px; border-top: 1px solid #eef2f7; }
+            .section > table > tbody > tr > td:last-child::before { display: none; }
+            .section > table > tbody > tr > td:last-child .btn {
+                flex: 1; padding: 12px 6px; font-size: 15px; }
+            .section > table > tbody > tr > td:last-child .btn-danger { flex: 0 0 58px; }
+            .section > table > tbody > tr > td:last-child .btn-view::after  { content: ' Ver'; }
+            .section > table > tbody > tr > td:last-child .btn-edit::after  { content: ' Abrir'; }
         }
     
     /* Quem só pode olhar não vê botão que grava. */
@@ -1914,6 +1963,41 @@
     }
 
     // ===== NAVEGAÇÃO =====
+    // ===== CELULAR: cada linha da lista vira um cartão =====
+    // No cartão a célula precisa dizer de que coluna ela é. Em vez de mexer em
+    // cada uma das telas, leio o cabeçalho da tabela e escrevo em cada célula.
+    function rotularTabelas() {
+        document.querySelectorAll('table').forEach(t => {
+            const cab = Array.from(t.querySelectorAll(':scope > thead th')).map(th => th.textContent.trim());
+            if (!cab.length) return;
+            t.querySelectorAll(':scope > tbody > tr').forEach(tr => {
+                Array.from(tr.children).forEach((td, i) => {
+                    const rot = (td.colSpan > 1) ? '' : (cab[i] || '');
+                    if (td.getAttribute('data-rot') !== rot) td.setAttribute('data-rot', rot);
+                    // célula sem informação vira ruído no cartão do celular: escondo
+                    const txt = td.textContent.trim();
+                    const vazia = (txt === '' || txt === '-' || txt === '—') &&
+                                  !td.querySelector('input,select,button,img,textarea');
+                    td.classList.toggle('cel-vazia', vazia);
+                });
+            });
+        });
+    }
+    // As listas são refeitas em muitos lugares diferentes; em vez de sair chamando
+    // em cada um, eu fico de olho no conteúdo e rotulo sozinha.
+    // Observo só childList — mexer em atributo não me chama de volta (nada de laço).
+    function ligarRotulador() {
+        const alvo = document.getElementById('appContainer') || document.body;
+        let pendente = null;
+        new MutationObserver(() => {
+            clearTimeout(pendente);
+            pendente = setTimeout(rotularTabelas, 60);
+        }).observe(alvo, {childList: true, subtree: true});
+        rotularTabelas();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ligarRotulador);
+    else ligarRotulador();
+
     // ===== MENU NO CELULAR =====
     // A tela dela é de ~390px: menu de 250px fixo não deixava nada para o conteúdo.
     function alternarMenu() { document.body.classList.toggle('menu-aberto'); }
