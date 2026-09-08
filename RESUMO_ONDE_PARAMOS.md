@@ -1078,3 +1078,77 @@ no primeiro "Salvar Cliente"). Agora começa com `...anterior`.
 sinistro aparece com o valor do seguro · período de 1 nov 24 → 22 jan 25 conta **82 dias** ·
 só os débitos dela aparecem (o "Outro Fulano" não) · total em aberto $ 35,50 correto ·
 documentos na ficha · 4 botões na lupa, com o campo "de quem?" e o aviso de gravar.
+
+
+## 🔑 08/09 parte 6 — O MODELO: o sistema lê da conversa quem ficou com o carro (`5268073`)
+
+Ela escolheu o **C-MAX AZUL** como carro-modelo: *"esse carro aconteceu de tudo... o que você
+achar que deve ser feito através dele como modelo para os próximos"*. Em vez de preencher os
+períodos à mão nesse carro, ensinei o sistema a **ler os períodos da própria conversa** — isso
+vale para todos os grupos.
+
+### A DESCOBERTA (vale para todo carro dele)
+**O Geraldo renomeia o grupo com o nome de quem está com o carro** e tira o nome quando volta:
+```
+5/11/22  C Max Blue Plinio          22/10/23  CMax 13 Blue 9DHW447 Julio
+10/2/23  CMax Blue 9DHW447 Ivonne    4/3/24   CMax 13 Blue 9DHW447        (voltou)
+11/4/23  CMax Blue 9DHW447 (voltou)  18/3/24  CMax 13 Blue 9DHW447 Daniel
+8/8/23   CMax 13 Blue 9DHW447 Magda  22/1/25  Sold CMax 13 Blue 9DHW447 Walter
+                                     25/1/25  Sold CMax ... Total Loss
+```
+É a linha do tempo inteira, de graça, e o padrão é o mesmo em todos os grupos
+(`[Sold/LV/TX] Modelo Ano Cor PLACA Cliente`).
+
+### Como separo o que é do CARRO do que é de GENTE (sem lista fixa por carro)
+`acharLocacoesZap()` conta a frequência de cada palavra nos títulos: **o que aparece em ≥50%
+dos títulos é do carro** (modelo, cor, placa, ano); o que aparece pouco é nome de pessoa.
+Some a isso os campos do carro selecionado (marca/cor/placa/ano — **partidos em pedaços**, senão
+"C-MAX" não cobre "Max" e "Max Plinio" virava nome) e uma lista curta de palavras de **situação**
+(`sold|lv|tx|pt|total|loss|vendido|oficina|garagem…`). Nada disso é específico deste carro.
+
+Completo com as frases: `carro entregue a X`, `X pegou carro`, `carro devolvido X`.
+Duas regras que só apareceram nos dados reais:
+- **`20/12 devolvido` é anotação retroativa** — linha de devolução que contém OUTRA data
+  (`\d{1,2}/\d{1,2}`) não fecha período nenhum. Sem isso o Wilmar fechava 2 dias antes.
+- **`devolvido Fulano` sem período aberto** abre um período do último evento até ali, marcado
+  *"só achei a devolução — confira a data de início"*. Foi assim que o **Luis** apareceu.
+
+### Perda total
+Se algum título vira **"Total Loss"**, proponho `dataBatida` = essa data e `responsavelBatida` =
+quem estava com o carro. Botão grava direto na ficha e põe `status: 'PT'`.
+
+### Na tela
+Aba nova em 📲 Importar do WhatsApp: **🔑 Quem ficou com o carro**, com a lista editável
+(cliente / de / até / como eu achei), faixa vermelha da perda total, e
+**💾 Gravar os N períodos no carro** (não duplica: compara nome+data de início).
+
+### RESULTADO NO C-MAX AZUL (conferido de ponta a ponta com Playwright)
+| quem | de | até |
+|---|---|---|
+| Plinio | 05/11/2022 | 10/02/2023 |
+| Ivonne | 10/02/2023 | 11/04/2023 |
+| Ivonne | 06/05/2023 | 31/07/2023 |
+| Magda | 08/08/2023 | 02/10/2023 |
+| Julio | 22/10/2023 | 04/03/2024 |
+| Daniel | 18/03/2024 | 13/08/2024 |
+| Izabella | 09/09/2024 | 03/10/2024 |
+| Luis | 03/10/2024 | 20/12/2024 *(início a confirmar)* |
+| Wilmar | 16/01/2025 | 20/01/2025 |
+| **Walter** | 22/01/2025 | 25/01/2025 — **perda total** |
+
+Gravar duas vezes **não duplica**. E o teste que importa: um débito de **05/abr/2024** passa a
+saber sozinho que é do **Daniel**. É esse o destravamento que faltava desde 07/09.
+
+**Contexto do C-MAX no fim:** em 22/01/2025 o carro foi **vendido no carnê ao Walter**
+(o grupo virou "Sold ... Walter"; no grupo: `22/01/2025 a 22/09/2025`, `300.00 semana`,
+`250.00 depósito`, `35x300 = 10.500 + 2.000 = 12.500`). Três dias depois virou perda total e
+acionaram o seguro. **Falta ela pôr o valor que o seguro pagou** no campo 🚑 Perda total —
+ela mostrou um relatório CCC ONE (Allstate) numa foto; **não lancei o número porque só o vi
+numa miniatura. Perguntar a ela.**
+
+### O roteiro do modelo, para os próximos carros
+1. Exportar o grupo **Com mídia** e escolher a pasta na tela 📲 Importar.
+2. Aba **🔑 Quem ficou com o carro** → conferir datas → **Gravar**.
+3. Se aparecer a faixa de perda total → **Marcar na ficha** e pôr o valor do seguro.
+4. Voltar às abas de dinheiro: conferir naturezas, olhar as fotos, marcar destino, **Gravar**.
+5. Abrir a ficha de cada pessoa em **🔑 Períodos e cobranças** e conferir.

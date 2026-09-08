@@ -103,6 +103,52 @@ Ou seja: você já pode mandar foto do WhatsApp direto para o anúncio hoje.
 
 ---
 
+## 🔑 O C-MAX AZUL virou o modelo — e o sistema aprendeu a ler sozinho
+
+Li o grupo inteiro do C-MAX AZUL e descobri uma coisa que vale **para todos os carros**:
+o Geraldo **renomeia o grupo com o nome de quem está com o carro** — "CMax 13 Blue 9DHW447
+**Daniel**" — e tira o nome quando o carro volta. Ou seja, **a linha do tempo já estava escrita
+lá**, em todos os grupos.
+
+Então, em vez de preencher esse carro na mão, ensinei o sistema a ler isso. Na tela
+📲 Importar do WhatsApp tem uma aba nova: **🔑 Quem ficou com o carro**. Ela já vem preenchida.
+
+No C-MAX AZUL ele achou **10 períodos**, sozinho:
+
+| quem | de | até |
+|---|---|---|
+| Plinio | 5 nov. 2022 | 10 fev. 2023 |
+| Ivonne | 10 fev. 2023 | 11 abr. 2023 |
+| Ivonne | 6 mai. 2023 | 31 jul. 2023 |
+| Magda | 8 ago. 2023 | 2 out. 2023 |
+| Julio | 22 out. 2023 | 4 mar. 2024 |
+| Daniel | 18 mar. 2024 | 13 ago. 2024 |
+| Izabella | 9 set. 2024 | 3 out. 2024 |
+| Luis | 3 out. 2024 | 20 dez. 2024 *(o início eu não achei — confira)* |
+| Wilmar | 16 jan. 2025 | 20 jan. 2025 |
+| **Walter** | 22 jan. 2025 | 25 jan. 2025 |
+
+E ele também percebeu a **perda total**: em 25 de janeiro o grupo virou "Total Loss", e quem
+estava com o carro era o **Walter**. Aparece uma faixa vermelha com um botão que marca isso na
+ficha do carro de uma vez.
+
+**O que isso destrava:** testei aqui — depois de gravar os períodos, um FasTrak de 5 de abril
+de 2024 passa a saber **sozinho** que é do Daniel. Era isso que estava faltando desde ontem.
+
+**O que você faz, em cada carro, daqui pra frente:**
+
+1. Exportar o grupo **Com mídia** e escolher a pasta na tela 📲 Importar
+2. Aba **🔑 Quem ficou com o carro** → conferir as datas → **💾 Gravar**
+3. Se aparecer a faixa vermelha de perda total → clicar em **marcar na ficha**
+4. Voltar nas abas de dinheiro, olhar as fotos, marcar o destino de cada uma → **💾 Gravar**
+5. Abrir a ficha de cada pessoa em **🔑 Períodos e cobranças** e conferir
+
+**Uma coisa eu não lancei de propósito:** o valor que o seguro pagou pelo C-MAX. Vi o relatório
+da Allstate numa foto pequena e não quero escrever número que não li direito. Me diz o valor e
+eu ponho — ou você mesma põe no campo **🚑 Perda total** da ficha do carro.
+
+---
+
 ## Respondendo a sua pergunta: clicar só MARCA
 
 Quando você clica em "Comprovante", "Vistoria" ou "Anúncio" dentro da foto grande, eu só
