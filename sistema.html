@@ -635,6 +635,12 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab(event, 'cli-info')">ℹ️ Informações</button>
             <button class="tab-btn" onclick="switchTab(event, 'cli-fotos')">📷 Fotos/Docs</button>
+            <button class="tab-btn" onclick="switchTab(event, 'cli-conta')">🔑 Períodos e cobranças</button>
+        </div>
+
+        <!-- PERÍODOS E COBRANÇAS -->
+        <div id="cli-conta" class="tab-content">
+            <div id="cli-conta-corpo"></div>
         </div>
 
         <!-- TAB INFORMAÇÕES -->
@@ -687,6 +693,11 @@
             <input type="file" id="cli-fotos-input" style="display: none;" multiple accept="image/*" onchange="handlePhotoSelect(event, 'cli-foto-gallery')">
             <button class="btn btn-small" style="margin-top:8px" onclick="tirarFotoAgora('cli-fotos-input')">📸 Tirar documento agora</button>
             <div class="photo-gallery" id="cli-foto-gallery"></div>
+            <h4 style="margin:20px 0 6px;font-size:15px">📄 Documentos vindos do WhatsApp</h4>
+            <p style="font-size:12px;color:#7b8794;margin:0 0 8px">
+              Estes chegaram pela tela 📲 Importar do WhatsApp, quando você marcou a foto como
+              <b>Documento do cliente</b>. Ficam sem marca d'água e guardam de qual carro vieram.</p>
+            <div id="cli-documentos"></div>
         </div>
 
         <button class="btn" onclick="saveCliente()">💾 Salvar Cliente</button>
@@ -776,6 +787,8 @@
                 <div class="form-group"><label>Cliente atual</label><input type="text" id="carro-cliente-atual" placeholder="Nome de quem está com o carro"></div>
                 <div class="form-group"><label>Valor de compra $</label><input type="number" step="0.01" id="carro-valorcompra" placeholder="4133.00" onchange="atualizarBalanco()"></div>
                 <div class="form-group"><label>🚑 Perda total — o que o seguro pagou $</label><input type="number" step="0.01" id="carro-indeniz" placeholder="0.00" onchange="atualizarBalanco()" title="Se o seguro deu perda total e indenizou, ponha aqui. Entra como dinheiro que entrou, para o carro mostrar o lucro ou o prejuízo de verdade."></div>
+                <div class="form-group"><label>💥 Data da batida / sinistro</label><input type="date" id="carro-databatida" onchange="sugerirResponsavel()"></div>
+                <div class="form-group"><label>💥 Quem era o responsável</label><input type="text" id="carro-responsavel" list="lista-de-clientes" placeholder="quem estava com o carro"><small id="carro-resp-dica" style="color:#7b8794;font-size:11px"></small></div>
                 <div class="form-group"><label>Milhas</label><input type="text" id="carro-km" placeholder="43283"></div>
                 <div class="form-group" style="grid-column: 1 / -1;"><label>ID Number (VIN)</label><input type="text" id="carro-vin" placeholder="1FADP5BU8DL533914"></div>
                 <div class="form-group"><label>Título no nome de</label><input type="text" id="carro-titular" placeholder="Joice"></div>
@@ -1963,6 +1976,122 @@
     }
 
     // ===== NAVEGAÇÃO =====
+    // ===== QUEM RESPONDE PELA BATIDA =====
+    // Ela pediu: "tem que ter uma marcação no carro sobre quem foi o responsável,
+    // assim quando o seguro acionar a gente já sabe quem responde."
+    // A data manda: quem estava com o carro naquele dia (aba 🔑 Quem ficou com o carro).
+    function sugerirResponsavel() {
+        const dt = document.getElementById('carro-databatida');
+        const rp = document.getElementById('carro-responsavel');
+        const dica = document.getElementById('carro-resp-dica');
+        if (!dt || !rp) return;
+        const c = editingId ? (database.carros || []).find(x => x.id === editingId) : null;
+        const achado = (c && dt.value) ? clienteNaData({...c, locacoes: cLocacoes}, dt.value) : null;
+        if (achado && achado.nome) {
+            if (!rp.value.trim()) rp.value = achado.nome;
+            if (dica) dica.textContent = 'Nessa data quem estava com o carro era ' + achado.nome + '.';
+        } else if (dica) {
+            dica.textContent = dt.value
+                ? 'Não achei período de locação nessa data — preencha a aba 🔑 Quem ficou com o carro.'
+                : '';
+        }
+    }
+
+    // ===== A CONTA DA PESSOA =====
+    // Junta, de TODOS os carros: os períodos em que ela ficou com o carro,
+    // as multas/danos que são dela, o que falta no carnê, e se ela respondeu
+    // por alguma batida. É o que ela pediu para "saber quem responde".
+    function resumoDoCliente(nome) {
+        const periodos = [], debitos = [], batidas = [];
+        (database.carros || []).forEach(c => {
+            const nomeCarro = ((c.marca || '') + ' ' + (c.placa ? '· ' + c.placa : '')).trim();
+            (c.locacoes || []).forEach(l => { if (mesmoNome(l.cliente, nome)) periodos.push({car: nomeCarro, l}); });
+            (c.debitos  || []).forEach(d => { if (mesmoNome(d.cliente, nome)) debitos.push({car: nomeCarro, d}); });
+            if (mesmoNome(c.responsavelBatida, nome))
+                batidas.push({car: nomeCarro, dia: c.dataBatida || '', seguro: Number(c.indenizacaoSeguro) || 0});
+        });
+        const dias = (de, ate) => {
+            if (!de) return '';
+            const fim = ate ? Date.parse(ate) : Date.now();
+            const q = Math.round((fim - Date.parse(de)) / 86400000);
+            return (q >= 0 ? q : 0) + ' dia(s)' + (ate ? '' : ' — ainda com ela');
+        };
+        const aberto = debitos.filter(x => !x.d.pago).reduce((s, x) => s + (Number(x.d.valor) || 0), 0);
+        const carros = carrosDoCliente(nome);
+        const bloco = (titulo, corpo) => `<div class="section" style="padding:14px;margin-bottom:14px">
+            <h4 style="margin:0 0 8px;font-size:15px;color:var(--primary)">${titulo}</h4>${corpo}</div>`;
+
+        return (batidas.length ? `<div class="aviso-pend" style="background:#fdecea;border-color:#c0392b;color:#7d241a">
+              💥 <b>Esta pessoa é a responsável por ${batidas.length} sinistro(s):</b>
+              ${batidas.map(b => `<div style="margin-top:4px">${escapaHtml(b.car)}
+                 ${b.dia ? '— batida em <b>' + escapaHtml(dataBonitaIso(b.dia)) + '</b>' : ''}
+                 ${b.seguro ? ' · seguro pagou <b>' + fmt(b.seguro) + '</b>' : ''}</div>`).join('')}
+            </div>` : '') +
+
+        bloco('🔑 Quando ficou com cada carro', periodos.length
+            ? `<table class="mini-table"><thead><tr><th>Carro</th><th>De</th><th>Até</th><th>Tempo</th><th>Obs</th></tr></thead>
+               <tbody>${periodos.map(p => `<tr><td>${escapaHtml(p.car)}</td>
+                 <td>${p.l.de ? escapaHtml(dataBonitaIso(p.l.de)) : '—'}</td>
+                 <td>${p.l.ate ? escapaHtml(dataBonitaIso(p.l.ate)) : '<b>ainda está</b>'}</td>
+                 <td>${escapaHtml(dias(p.l.de, p.l.ate))}</td>
+                 <td>${escapaHtml(p.l.obs || '')}</td></tr>`).join('')}</tbody></table>`
+            : `<p style="font-size:13px;color:#7b8794">Nenhum período cadastrado. Abra o carro na aba
+               <b>🔑 Quem ficou com o carro</b> e preencha — é isso que faz o sistema saber de quem é cada multa.</p>`) +
+
+        bloco('🎫 Multas, pedágios e danos desta pessoa' +
+              (aberto ? ` — <span class="val-neg">em aberto ${fmt(aberto)}</span>` : ''),
+            debitos.length
+            ? `<table class="mini-table"><thead><tr><th>Data</th><th>Carro</th><th>O que é</th><th>Valor</th><th>Pago?</th></tr></thead>
+               <tbody>${debitos.map(x => `<tr class="${x.d.pago ? 'linha-pago' : ''}">
+                 <td>${escapaHtml(x.d.dia || '')}</td><td>${escapaHtml(x.car)}</td>
+                 <td>${escapaHtml(x.d.desc || '')}${x.d.natureza ? ' <span style="color:#7b8794">(' + escapaHtml(x.d.natureza) + ')</span>' : ''}</td>
+                 <td class="${Number(x.d.valor) < 0 ? 'val-pos' : 'val-neg'}">${fmt(x.d.valor)}</td>
+                 <td>${x.d.pago ? '✅' : '—'}</td></tr>`).join('')}</tbody></table>`
+            : '<p style="font-size:13px;color:#7b8794">Nada em nome desta pessoa.</p>') +
+
+        bloco('💵 Carros e pagamentos', carros.length
+            ? carros.map(a => `<div style="font-size:13px;padding:5px 0;border-bottom:1px solid #eee">
+                 ${escapaHtml(a.carro)} — <span style="color:#7b8794">${escapaHtml(a.como)}</span>
+                 ${a.falta ? ` · <b class="val-neg">falta ${fmt(a.falta)}</b>` : ''}
+                 ${a.atraso ? ` · <span class="badge badge-atraso">${a.atraso} atrasada(s)</span>` : ''}</div>`).join('')
+            : '<p style="font-size:13px;color:#7b8794">Nenhum carro ligado a esta pessoa.</p>');
+    }
+
+    // documentos que vieram do WhatsApp para a ficha da pessoa
+    let cDocumentos = [];
+    function renderDocsCliente() {
+        const el = document.getElementById('cli-documentos');
+        if (!el) return;
+        el.innerHTML = cDocumentos.length ? cDocumentos.map((d, i) => `
+            <div style="display:flex;gap:10px;align-items:center;border:1px solid #e6e9ee;border-radius:8px;
+                        padding:8px;margin-bottom:8px">
+              <img src="${d.foto}" onclick="verDocGrande(${i})" style="width:74px;height:74px;object-fit:cover;
+                   border-radius:6px;cursor:zoom-in">
+              <div style="flex:1;font-size:13px">
+                <b>${escapaHtml(d.titulo || 'Documento')}</b>
+                <div style="color:#7b8794">${escapaHtml(d.dia || '')}${d.carro ? ' · ' + escapaHtml(d.carro) : ''}</div>
+              </div>
+              <button class="del" onclick="cDocumentos.splice(${i},1);renderDocsCliente()">✕</button>
+            </div>`).join('')
+          : '<p style="font-size:13px;color:#7b8794">Nenhum documento ainda.</p>';
+    }
+    function verDocGrande(i) {
+        const d = cDocumentos[i];
+        if (!d) return;
+        let ov = document.getElementById('doc-lupa');
+        if (!ov) {
+            ov = document.createElement('div'); ov.id = 'doc-lupa';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;' +
+                'flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px';
+            ov.onclick = () => ov.remove();
+            document.body.appendChild(ov);
+        }
+        ov.innerHTML = '<img src="' + d.foto + '" style="max-width:92vw;max-height:78vh;object-fit:contain;border-radius:8px">' +
+            '<div style="color:#fff;font-size:14px;text-align:center">' + escapaHtml(d.titulo || '') +
+            (d.dia ? ' · ' + escapaHtml(d.dia) : '') + (d.carro ? ' · ' + escapaHtml(d.carro) : '') + '</div>' +
+            '<div style="color:#cfd8e3;font-size:12px">clique em qualquer lugar para fechar</div>';
+    }
+
     // ===== CELULAR: cada linha da lista vira um cartão =====
     // No cartão a célula precisa dizer de que coluna ela é. Em vez de mexer em
     // cada uma das telas, leio o cabeçalho da tabela e escrevo em cada célula.
@@ -2039,6 +2168,9 @@
                 document.getElementById('cli-status').value = cliente.status || 'Ativo';
                 if (document.getElementById('cli-obs')) document.getElementById('cli-obs').value = cliente.obs || '';
                 mostrarCarrosDoCliente(cliente.nome);
+                cDocumentos = JSON.parse(JSON.stringify(cliente.documentos || []));
+                const cc = document.getElementById('cli-conta-corpo');
+                if (cc) cc.innerHTML = resumoDoCliente(cliente.nome);
 
                 // Carregar fotos
                 if (cliente.fotos && cliente.fotos.length > 0) {
@@ -2053,7 +2185,11 @@
             document.getElementById('clienteModalTitle').textContent = '➕ Novo Cliente';
             clearModalInputs(modal);
             document.getElementById('cli-foto-gallery').innerHTML = '';
+            cDocumentos = [];
+            const cc = document.getElementById('cli-conta-corpo');
+            if (cc) cc.innerHTML = '<p style="font-size:13px;color:#7b8794">Salve a pessoa primeiro.</p>';
         }
+        renderDocsCliente();
 
         // Reset tabs para a aba de informações
         document.querySelectorAll('#clienteModal .tab-content').forEach(t => t.classList.remove('active'));
@@ -2069,7 +2205,11 @@
             const nome = document.getElementById('cli-nome').value.trim();
             if (!nome) { alert('❌ Preencha o nome!'); return; }
 
+            // Guarda o que ja existia: senao campos que esta tela nao conhece
+            // (documentos, por exemplo) sumiam ao salvar. Mesmo erro que o carro tinha.
+            const anterior = editingId ? (database.clientes.find(c => c.id === editingId) || {}) : {};
             const novoCliente = {
+                ...anterior,
                 id: editingId || Date.now(),
                 nome,
                 cpf: document.getElementById('cli-cpf').value || '',
@@ -2079,7 +2219,8 @@
                 endereco: document.getElementById('cli-endereco').value || '',
                 status: document.getElementById('cli-status').value || 'Ativo',
                 obs: document.getElementById('cli-obs') ? document.getElementById('cli-obs').value : '',
-                fotos: Array.from(document.querySelectorAll('#cli-foto-gallery img')).map(img => img.src) || []
+                fotos: Array.from(document.querySelectorAll('#cli-foto-gallery img')).map(img => img.src) || [],
+                documentos: cDocumentos
             };
 
             if (editingId) {
@@ -2558,6 +2699,8 @@
             setv('carro-valorvenda', c.valorVenda); setv('carro-entrada', c.entrada);
             setv('carro-valorcompra', c.valorCompra);
             setv('carro-indeniz', c.indenizacaoSeguro);
+            setv('carro-databatida', c.dataBatida);
+            setv('carro-responsavel', c.responsavelBatida);
             cFotosVistoria = JSON.parse(JSON.stringify(c.fotosVistoria || []));
             const an = c.anuncio || {};
             document.getElementById('carro-disponivel').checked = !!c.disponivel;
@@ -2628,6 +2771,8 @@
                 valorVenda: parseFloat(g('carro-valorvenda')) || 0,
                 valorCompra: parseFloat(g('carro-valorcompra')) || 0,
                 indenizacaoSeguro: parseFloat(g('carro-indeniz')) || 0,
+                dataBatida: g('carro-databatida'),
+                responsavelBatida: g('carro-responsavel'),
                 fotosVistoria: cFotosVistoria,
                 entrada: parseFloat(g('carro-entrada')) || 0,
                 carnes: cCarnes, debitos: cDebitos,
@@ -3776,8 +3921,28 @@
         vist: {rot: '🔧 Foto de vistoria / dano',      cor: '#c0392b',
                ajuda: 'Vai para a aba 🔍 Vistoria do carro. Sem marca d\'água — é documento.'},
         anun: {rot: '📢 Foto para o anúncio',          cor: '#b8912b',
-               ajuda: 'Vai para as fotos do carro e sai no site, já com a marca d\'água.'}
+               ajuda: 'Vai para as fotos do carro e sai no site, já com a marca d\'água.'},
+        docli:{rot: '📄 Documento do cliente',         cor: '#6b3fa0',
+               ajuda: 'CNH, contrato, comprovante. Vai para a ficha DA PESSOA, não do carro. Sem marca d\'água.'}
     };
+    // Nome normalizado: "José  Silva" e "jose silva" são a mesma pessoa.
+    function nomeChave(x) {
+        return String(x || '').trim().toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    }
+    function mesmoNome(a, b) {
+        const x = nomeChave(a), y = nomeChave(b);
+        if (!x || !y) return false;
+        return x === y || x.startsWith(y + ' ') || y.startsWith(x + ' ');
+    }
+    // De quem é o documento desta foto (ela pode trocar na lupa)
+    function zapDonoDoc(a) {
+        if (a.docDe) return a.docDe;
+        if (a.cliente) return a.cliente;
+        const c = carroDoZap();
+        const naData = c ? clienteNaData(c, a.iso) : null;
+        return (naData && naData.nome) || '';
+    }
     function zapDestinoDe(a, nome) { return (a.destino || {})[nome] || ''; }
     function zapContaDestino(qual) {
         let q = 0;
@@ -3827,7 +3992,9 @@
         const a = zapAchados[zapLupa.i], nome = a.fotos[zapLupa.k];
         a.destino = a.destino || {};
         if (a.destino[nome] === qual) delete a.destino[nome]; else a.destino[nome] = qual;
-        if (qual && a.destino[nome] && !a.usar && a.tipo !== 'nada') a.usar = true;
+        // só o COMPROVANTE precisa que a linha seja gravada — os outros três destinos
+        // são da ficha (carro ou pessoa) e valem sozinhos, sem virar gasto.
+        if (a.destino[nome] === 'comp' && !a.usar && a.tipo !== 'nada') a.usar = true;
         zapDesenharLupa();
     }
 
@@ -3852,8 +4019,18 @@
                             : '<img src="' + u + '" style="max-width:88vw;max-height:58vh;object-fit:contain;border-radius:8px">';
         const botao = q => '<button onclick="zapPorDestino(\'' + q + '\')" style="border:2px solid ' +
             ZAP_DEST[q].cor + ';background:' + (atual === q ? ZAP_DEST[q].cor : 'transparent') +
-            ';color:' + (atual === q ? '#fff' : '#fff') + ';padding:9px 14px;border-radius:8px;cursor:pointer;' +
+            ';color:#fff;padding:9px 14px;border-radius:8px;cursor:pointer;' +
             'font-size:13px;font-weight:600">' + (atual === q ? '✓ ' : '') + ZAP_DEST[q].rot + '</button>';
+        const dono = zapDonoDoc(a);
+        const campoDono = atual === 'docli'
+            ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;' +
+              'background:#6b3fa022;border:1px solid #6b3fa0;padding:9px 12px;border-radius:8px">' +
+              '<span style="color:#fff;font-size:13px">Documento de quem?</span>' +
+              '<input id="zap-dono-doc" list="lista-de-clientes" value="' + escapaHtml(dono) + '" ' +
+              'placeholder="nome da pessoa" onchange="zapAchados[' + zapLupa.i + '].docDe=this.value" ' +
+              'style="padding:7px 9px;border-radius:6px;border:0;font-size:13px;min-width:190px">' +
+              '</div>'
+            : '';
         ov.innerHTML =
             '<div style="display:flex;align-items:center;gap:14px">' +
               (tem.length > 1 ? '<button onclick="zapLupaAndar(-1)" style="background:#ffffff22;color:#fff;border:0;' +
@@ -3867,7 +4044,11 @@
               (tem.length > 1 ? ' <span style="color:#aab6c2">(foto ' + pos + ' de ' + tem.length + ')</span>' : '') + '</div>' +
             '<div style="color:#cfd8e3;font-size:13px">Para que serve esta foto? (clique de novo para desmarcar)</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
-              botao('comp') + botao('vist') + botao('anun') + '</div>' +
+              botao('comp') + botao('vist') + botao('anun') + botao('docli') + '</div>' +
+            campoDono +
+            (atual ? '<div style="color:#ffd77a;font-size:12px;text-align:center;max-width:520px">' +
+               '⚠️ Isto só <b>marca</b>. Para valer, feche e clique em <b>💾 Gravar</b> no fim da lista.' +
+               '</div>' : '') +
             '<button onclick="zapFecharLupa()" style="background:#fff;color:#33475b;border:0;padding:10px 24px;' +
               'border-radius:8px;cursor:pointer;font-weight:600">✕ Fechar (Esc)</button>' +
             '<div style="color:#8a97a5;font-size:11px">setas ← → passam as fotos desta linha</div>';
@@ -4409,14 +4590,21 @@
         const c = carroDoZap();
         if (!c) return;
         const usar = zapAchados.filter(a => a.usar && a.gasto && a.tipo !== 'nada');
-        if (!usar.length) return alert('Nenhuma linha marcada.');
 
-        // 1) as fotos que ela escolheu, cada uma para o seu lugar
+        // 1) as fotos que ela escolheu, cada uma para o seu lugar.
+        //    Foto de anúncio, de vistoria e documento do cliente valem mesmo que a
+        //    linha não vire lançamento — são da ficha, não do dinheiro.
         const tarefas = [];
-        usar.forEach(a => Object.keys(a.destino || {}).forEach(nome => {
-            if (zapArquivos[nome]) tarefas.push({a: a, nome: nome, dest: a.destino[nome]});
+        zapAchados.forEach(a => Object.keys(a.destino || {}).forEach(nome => {
+            if (!zapArquivos[nome]) return;
+            const d = a.destino[nome];
+            if (d === 'comp' && usar.indexOf(a) < 0) return;
+            tarefas.push({a: a, nome: nome, dest: d});
         }));
-        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0;
+        if (!usar.length && !tarefas.length)
+            return alert('Nenhuma linha marcada e nenhuma foto escolhida.');
+        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0, nDoc = 0;
+        const pessoasTocadas = [], pessoasNovas = [];
         c.fotos = c.fotos || [];
         c.fotosVistoria = c.fotosVistoria || [];
         c.zapFotosUsadas = c.zapFotosUsadas || [];
@@ -4430,18 +4618,40 @@
                     const r = await subirFotoZap(c, t.nome);
                     if (r && r.path) { (t.a.arquivos = t.a.arquivos || []).push(r); fotosOk++; }
                     else { fotosRuins++; if (!motivoFoto && r && r.erro) motivoFoto = r.erro; }
-                } else if (c.zapFotosUsadas.indexOf(t.nome) >= 0) {
-                    // já trouxe esta foto do grupo antes — não duplico
+                } else if (c.zapFotosUsadas.indexOf(t.dest + '|' + t.nome) >= 0) {
+                    // já trouxe esta foto do grupo para este lugar — não duplico
                 } else {
                     const bruta = await lerComoDataUrl(zapArquivos[t.nome]);
                     if (!bruta) { fotosRuins++; }
                     else if (t.dest === 'anun') {
                         const pronta = await encolherFoto(bruta);      // com marca d'água: vai para o site
-                        if (pronta) { c.fotos.push(pronta); c.zapFotosUsadas.push(t.nome); nAnun++; }
-                    } else {
-                        const pronta = await encolherSimples(bruta, 1200);  // vistoria é documento: sem marca
+                        if (pronta) { c.fotos.push(pronta);
+                                      c.zapFotosUsadas.push(t.dest + '|' + t.nome); nAnun++; }
+                    } else if (t.dest === 'vist') {
+                        const pronta = await encolherSimples(bruta, 1200);  // documento não se marca
                         if (pronta) { c.fotosVistoria.push({nome: t.nome, dia: t.a.dia, foto: pronta});
-                                      c.zapFotosUsadas.push(t.nome); nVist++; }
+                                      c.zapFotosUsadas.push(t.dest + '|' + t.nome); nVist++; }
+                    } else {   // documento do cliente: vai para a ficha DA PESSOA
+                        const quem = (t.a.docDe || zapDonoDoc(t.a) || '').trim();
+                        const pronta = quem ? await encolherSimples(bruta, 1400) : '';
+                        if (!quem) { fotosRuins++; if (!motivoFoto) motivoFoto = 'faltou dizer de quem é o documento'; }
+                        else if (pronta) {
+                            let p = (database.clientes || []).find(x => mesmoNome(x.nome, quem));
+                            if (!p) {
+                                p = {id: Date.now() + Math.floor(Math.random() * 999), nome: quem,
+                                     cpf: '', tel: '', email: '', datanasc: '', endereco: '',
+                                     status: 'Ativo', obs: '', fotos: []};
+                                (database.clientes = database.clientes || []).push(p);
+                                if (pessoasNovas.indexOf(quem) < 0) pessoasNovas.push(quem);
+                            }
+                            p.documentos = p.documentos || [];
+                            p.documentos.push({titulo: t.a.obs || 'Documento', dia: t.a.dia, iso: t.a.iso,
+                                               carro: (c.marca || '') + ' ' + (c.placa || ''),
+                                               placa: c.placa || '', foto: pronta, origem: 'WhatsApp'});
+                            c.zapFotosUsadas.push(t.dest + '|' + t.nome);
+                            if (pessoasTocadas.indexOf(p.nome) < 0) pessoasTocadas.push(p.nome);
+                            nDoc++;
+                        }
                     }
                 }
                 feitas++;
@@ -4527,6 +4737,8 @@
             ${fotosOk ? `<div style="margin-top:6px">📎 <b>${fotosOk}</b> comprovante(s) guardado(s) — aparecem com 📎 na linha do gasto/débito.</div>` : ''}
             ${nAnun ? `<div style="margin-top:6px">📢 <b>${nAnun}</b> foto(s) foram para as <b>fotos do carro</b> (já com a marca d'água) — prontas para o anúncio.</div>` : ''}
             ${nVist ? `<div style="margin-top:6px">🔧 <b>${nVist}</b> foto(s) de <b>vistoria/dano</b> guardadas na ficha do carro, sem marca d'água.</div>` : ''}
+            ${nDoc ? `<div style="margin-top:6px">📄 <b>${nDoc}</b> documento(s) foram para a ficha de: <b>${escapaHtml(pessoasTocadas.join(', '))}</b>.
+               ${pessoasNovas.length ? `<br><span style="color:#b8912b">Criei ficha nova para: <b>${escapaHtml(pessoasNovas.join(', '))}</b> — complete o telefone e o resto quando puder.</span>` : ''}</div>` : ''}
             ${c.zapUltimaData ? `<div style="margin-top:6px">⏮ Marquei que este grupo já foi trazido até <b>${escapaHtml(dataBonitaIso(c.zapUltimaData))}</b>. Da próxima vez eu só trago o que for dessa data para a frente.</div>` : ''}
             ${fotosRuins ? `<div class="aviso-pend" style="margin-top:8px">⚠️ <b>${fotosRuins}</b> foto(s) não subiram.
                Os lançamentos foram gravados do mesmo jeito — só as fotos ficaram de fora.
