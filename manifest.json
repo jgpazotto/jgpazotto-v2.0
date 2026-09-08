@@ -2,7 +2,7 @@
   "name": "JG Pazotto — Área do Proprietário",
   "short_name": "JG Pazotto",
   "description": "Acesso ao sistema interno da JG Pazotto",
-  "start_url": "dashboard-v3.5.html",
+  "start_url": "sistema.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
