@@ -9,6 +9,13 @@
 > **Pasta:** `/Users/geraldoejoicepazotto/Documents/jgpazotto-v2.0` (conectada)
 > **Números:** 56 carros · 11 imóveis · 19 clientes · 9 carnês abertos · $ 47.952,50 a receber
 >
+> ### ⚠️ 08/09 parte 2 — ELA TESTOU E ACHOU DOIS DEFEITOS MEUS (já corrigidos)
+> "qualquer coisa q clica, a tela rola para cima" e "quando clico para ampliar está aparecendo
+> outra coisa". **Mesma causa:** `mostrarZap()` redesenhava o HTML inteiro a cada clique, então
+> (a) a rolagem voltava ao topo e (b) entre o 1º e o 2º clique do `ondblclick` o quadradinho
+> mudava de lugar e a lupa abria a foto errada. **Regra nova: interação de conferência não pode
+> redesenhar a lista.** Detalhe na seção do dia.
+>
 > ### ✅ O que ficou pronto em 08/09 (leia a seção do dia no fim do arquivo)
 > 1. **As fotos do WhatsApp aparecem ao lado de cada linha de dinheiro.** A tela agora aceita a
 >    **pasta** exportada COM mídia. 190 das 214 linhas do C-MAX AZUL têm foto do lado.
@@ -882,3 +889,75 @@ Abrir aba nova não resolve. **Peça a ela para trazer o Chrome para a frente an
 4. Encher a vitrine (marcar Disponível + foto + preço) · 16 linhas de aluguel/depósito ·
    8 carnês em aberto.
 5. Levar as fotos que ela escolher para dentro da ficha do carro (aba 📷 Fotos), não só no gasto.
+
+
+---
+
+## 🔧 08/09 parte 2 — os defeitos que ela achou, e o que ela pediu junto (commit `7b8cfd6`)
+
+### O que estava errado (erro meu de desenho, não de digitação)
+`mostrarZap()` reconstrói `#zap-resultado` inteiro. Eu chamava ele **em todo clique** —
+inclusive no checkbox e na miniatura. Consequências que ela sentiu:
+1. **A tela voltava ao topo** a cada marcação: ela perdia o lugar em 214 linhas.
+2. **A lupa abria a foto errada:** eu tinha posto `onclick` (marcar) + `ondblclick` (ampliar) na
+   mesma miniatura. O 1º clique redesenhava a lista, o elemento sob o cursor deixava de ser o
+   mesmo, e o `ondblclick` caía noutra foto.
+
+**Regra para não repetir: o que é conferência (marcar, escolher foto) atualiza só o pedaço;
+só muda de natureza/valor/filtro é que redesenha a lista.**
+
+### Como ficou
+- `zapUsar(i, ok)` altera o dado e chama `zapAtualizarResumo()`, que reescreve **só**
+  `#zap-abas` e `#zap-resumo` (fatorados em `zapHtmlAbas()` e `zapHtmlResumo()`).
+- `zapAtualizarLinha(i)` troca por `outerHTML` **só** a tirinha `#zap-fotos-<i>`.
+- `mostrarZap()`, quando precisa mesmo rodar, guarda `#zap-rolagem`.scrollTop e `window.scrollY`
+  e devolve depois.
+- **1 clique na foto = lupa** (`zapAbrirFoto`), sem `ondblclick` em lugar nenhum.
+  Na lupa: setas `‹ ›` (e ← →), `Esc`/✕ para fechar, fecha clicando no fundo preto.
+
+### Os 3 destinos da foto (pedido dela: "as fotos de anúncio também estão no WhatsApp")
+Dentro da lupa ela escolhe para que serve a foto — `a.destino = {nomeArquivo: 'comp'|'vist'|'anun'}`:
+
+| destino | onde cai | marca d'água |
+|---|---|---|
+| 📎 comprovante | Supabase Storage; só o caminho vai no lançamento (`fotos:[{nome,path}]`) | — |
+| 🔧 vistoria/dano | `c.fotosVistoria = [{nome, dia, foto}]`, base64 encolhido a 1200px | **não** (é documento) |
+| 📢 anúncio | `c.fotos` (base64 via `encolherFoto`), que é o que a vitrine exporta | **sim** |
+
+⚠️ **`c.fotos` TEM que ser base64** — `gerarArquivoAnuncios` faz `dados: f` e mete no zip.
+Caminho do Storage ali quebraria a vitrine. Por isso só o *comprovante* usa Storage.
+`c.zapFotosUsadas = [nomes]` impede a mesma foto do grupo de entrar duas vezes.
+`encolherSimples(dataUrl, max)` é o encolher **sem** marca (novo, ao lado de `encolherFoto`).
+
+### "de tal data adiante" — não duplicar nas próximas importações
+`c.zapUltimaData` guarda a data ISO mais nova gravada naquele grupo. Em `agruparZap()`,
+`a.jaImportado = a.iso <= corte` → nasce **desmarcada**, some das abas por natureza, e ganha
+aba própria **⏮ Já importadas antes** + aviso verde no topo com a data por extenso.
+**Medido:** corte em 2024-01-01 no C-MAX marca 62 linhas e deixa **0 marcadas por engano**.
+
+### Perda total (o C-MAX AZUL foi perda total, o seguro finalizou)
+Campo **🚑 Perda total — o que o seguro pagou $** (`carro-indeniz` → `c.indenizacaoSeguro`),
+card **Seguro (perda total)** no Balanço, e a conta virou
+**Lucro = Recebidos + Seguro − (Compra + Gastos)**.
+⚠️ **NÃO usar o id `carro-seguro`** — já existe e é a seguradora (`c.seg`). Quase caí nessa.
+Novos campos registrados: `CAMPOS_DINHEIRO += indenizacaoSeguro, zapUltimaData` ·
+`CAMPOS_PESADOS += fotosVistoria, zapFotosUsadas`.
+
+### Como testei sem o Chrome dela (vale MUITO, repetir sempre)
+`npm i jsdom` no container da nuvem, extrair de `sistema.html` o trecho de
+`let zapAchados = [];` até `function lerComoDataUrl(f) {`, colar entre um `pre.js` (stubs de
+`document` via JSDOM, `fmt`, `escapaHtml`, `database`, `clienteNaData`, `saveData`, `sb`) e um
+`pos.js` com as asserções, concatenar num arquivo só e `node teste.js`.
+⚠️ `eval()` não vale — `let` fica preso no escopo do eval. **Concatenar os arquivos.**
+Resultado (tudo verdadeiro): 214 achados · lista e ids renderizam · desmarcar **não** troca o
+elemento da lista · a lupa abre exatamente a foto pedida e com a legenda certa · setas andam ·
+destino grava · ao fechar, só a tirinha da linha muda · corte marca 62 e erra 0.
+
+### O QUE FALTA (atualizado 08/09, parte 2)
+1. **Bucket `comprovantes` no Supabase** — SQL na seção anterior. **Pedir a ela para trazer o
+   Chrome para a frente antes** (aba escondida não monta o painel). Sem ele, só o destino
+   *comprovante* falha; **vistoria e anúncio já funcionam**, porque são base64 na própria ficha.
+2. Períodos de locação (🔑 Quem ficou com o carro) — segue sendo o gargalo da cobrança.
+3. Geraldo como dono em 🧑‍💼 Funcionários.
+4. Encher a vitrine — agora ela pode mandar foto do WhatsApp direto para o anúncio.
+5. Ela conferir se o balanço do C-MAX AZUL fecha depois de lançar a indenização do seguro.

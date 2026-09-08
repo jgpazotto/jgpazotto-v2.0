@@ -50,7 +50,45 @@ No C-MAX AZUL ele achou 4 casos, e todos merecem seu olho:
 
 ---
 
-## Uma coisa ficou faltando, e eu preciso de 30 segundos seus
+## Consertei o que você achou (parte da tarde)
+
+**A tela não pula mais para o topo.** O defeito era meu: a lista inteira se redesenhava a cada
+clique. Agora, quando você marca ou desmarca, só os números lá em cima mudam — você não perde
+mais o lugar.
+
+**E a lupa abre a foto certa.** Era o mesmo defeito: eu tinha posto "1 clique marca, 2 cliques
+amplia", e entre um clique e outro a lista se redesenhava e o quadradinho já era outro.
+
+**Agora é só 1 clique na foto** — ela abre grande. E é **dentro da foto grande** que você diz
+para que ela serve:
+
+- **📎 Comprovante deste lançamento** — fica presa ao gasto, como prova
+- **🔧 Foto de vistoria / dano** — vai para a aba Vistoria do carro, **sem marca d'água**
+  (é documento, não se marca)
+- **📢 Foto para o anúncio** — vai direto para as fotos do carro, **já com a marca d'água**,
+  pronta para o site
+
+Use as **setas ‹ ›** (ou ← → no teclado) para passar as fotos daquela linha, e **Esc** para fechar.
+
+## Não vai mais duplicar
+
+Quando você gravar, eu anoto **até que data** já trouxe daquele grupo. Da próxima vez que você
+mandar a mesma conversa, tudo que for daquela data para trás já vem **desmarcado**, num quadro
+separado chamado "⏮ Já importadas antes" — e um aviso verde em cima diz até quando você já tinha
+trazido. Era exatamente o que você pediu.
+
+## Perda total do C-MAX AZUL
+
+Na ficha do carro tem um campo novo: **🚑 Perda total — o que o seguro pagou $**.
+Você põe ali o que o seguro indenizou e o Balanço passa a mostrar de verdade:
+
+**Lucro = Recebidos + Seguro − (Compra + Gastos)**
+
+Tem um quadro novo "Seguro (perda total)" ao lado de Compra, Gastos e Recebidos.
+
+---
+
+## Uma coisa ainda falta, e eu preciso de 30 segundos seus
 
 As fotos que você escolher precisam de um **depósito** para morar (elas não cabem junto com
 os dados — 342 fotos são 106 MB). O código de guardar já está pronto e no ar, mas eu preciso
@@ -59,11 +97,16 @@ Supabase não abre numa aba escondida, então não consegui.
 
 **É só deixar a janela do Chrome aberta na frente e me falar.** Eu faço em 1 minuto.
 
-Enquanto isso o sistema funciona normal: você já pode olhar as fotos e conferir tudo.
-Se gravar com foto marcada antes do depósito existir, os lançamentos entram do mesmo jeito —
-só as fotos ficam de fora, com aviso.
+**Boa notícia:** isso só atrapalha o **📎 comprovante**. As fotos de **anúncio** e de
+**vistoria** já funcionam agora, porque elas ficam guardadas na própria ficha do carro.
+Ou seja: você já pode mandar foto do WhatsApp direto para o anúncio hoje.
 
 ---
+
+## ⚠️ Abra com Cmd + Shift + R
+
+O sistema mudou hoje duas vezes. Se a tela ainda estiver com o defeito antigo, é o navegador
+mostrando a versão velha — **Cmd + Shift + R** resolve.
 
 ## Depois disso, na ordem
 
