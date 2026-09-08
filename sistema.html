@@ -692,6 +692,7 @@
                 <div class="form-group"><label>Cor</label><input type="text" id="carro-cor" placeholder="AZUL"></div>
                 <div class="form-group"><label>Cliente atual</label><input type="text" id="carro-cliente-atual" placeholder="Nome de quem está com o carro"></div>
                 <div class="form-group"><label>Valor de compra $</label><input type="number" step="0.01" id="carro-valorcompra" placeholder="4133.00" onchange="atualizarBalanco()"></div>
+                <div class="form-group"><label>🚑 Perda total — o que o seguro pagou $</label><input type="number" step="0.01" id="carro-indeniz" placeholder="0.00" onchange="atualizarBalanco()" title="Se o seguro deu perda total e indenizou, ponha aqui. Entra como dinheiro que entrou, para o carro mostrar o lucro ou o prejuízo de verdade."></div>
                 <div class="form-group"><label>Milhas</label><input type="text" id="carro-km" placeholder="43283"></div>
                 <div class="form-group" style="grid-column: 1 / -1;"><label>ID Number (VIN)</label><input type="text" id="carro-vin" placeholder="1FADP5BU8DL533914"></div>
                 <div class="form-group"><label>Título no nome de</label><input type="text" id="carro-titular" placeholder="Joice"></div>
@@ -731,6 +732,11 @@
             <p style="font-size:13px;color:#666;margin-bottom:10px;">O que o carro tem — marque o que está no veículo.</p>
             <button class="btn btn-small" onclick="addVistoriaCarro()">➕ Novo item</button>
             <div id="carro-vistoria-body"></div>
+            <h4 style="margin:18px 0 6px;font-size:15px">🔧 Fotos de dano / vistoria</h4>
+            <p style="font-size:12px;color:#7b8794;margin:0 0 8px">
+              Estas fotos vêm do grupo do WhatsApp (você escolhe na tela 📲 Importar) e ficam
+              <b>sem marca d'água</b> — são documento, prova do dano. Não vão para o site.</p>
+            <div id="carro-vistoria-fotos" class="photo-gallery"></div>
         </div>
 
         <!-- PAGAMENTOS -->
@@ -746,6 +752,7 @@
                 <div class="resumo-card"><small>Compra</small><b id="bal-compra">$ 0,00</b></div>
                 <div class="resumo-card"><small>Gastos</small><b id="bal-gastos">$ 0,00</b></div>
                 <div class="resumo-card"><small>Recebidos</small><b id="bal-recebidos">$ 0,00</b></div>
+                <div class="resumo-card"><small>Seguro (perda total)</small><b id="bal-seguro">$ 0,00</b></div>
                 <div class="resumo-card"><small>Lucro / Prejuízo</small><b id="bal-saldo">$ 0,00</b></div>
             </div>
             <p style="font-size:12px;color:#7b8794;margin:-8px 0 4px;">
@@ -1312,8 +1319,9 @@
     // Campos do carro que pertencem a cada área.
     const CAMPOS_DINHEIRO = ['gastosLista','pagamentos','balanco','totalGastos','totalRecebidos',
                              'saldo','carnes','debitos','valorVenda','entrada','valorCompra',
+                             'indenizacaoSeguro','zapUltimaData',
                              'anuncio','fichaAnteriorLocacao','gastosDaPlanilhaAntiga'];
-    const CAMPOS_PESADOS  = ['fotos','vistoria'];
+    const CAMPOS_PESADOS  = ['fotos','vistoria','fotosVistoria','zapFotosUsadas'];
 
     // Cada tela do menu depende de uma área. Sem a área, a tela não aparece.
     const AREA_DA_TELA = {
@@ -2320,6 +2328,19 @@
     }
     function addVistoriaCarro() { cVistoria.push({item: '', ok: false, nota: ''}); renderVistoriaCarro(); }
 
+    // fotos de dano trazidas do WhatsApp
+    let cFotosVistoria = [];
+    function renderFotosVistoria() {
+        const el = document.getElementById('carro-vistoria-fotos');
+        if (!el) return;
+        el.innerHTML = cFotosVistoria.map((f, i) =>
+            `<div class="photo-item" title="${escapaHtml((f.dia || '') + ' · ' + (f.nome || ''))}">
+               <img src="${f.foto || f}" />
+               <button class="photo-remove" onclick="cFotosVistoria.splice(${i},1);renderFotosVistoria()">✕</button>
+             </div>`).join('') ||
+            '<p style="font-size:12px;color:#7b8794">Nenhuma foto de dano ainda.</p>';
+    }
+
     // ---- pagamentos
     const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
     function renderPagamentosCarro() {
@@ -2377,11 +2398,15 @@
             ? cBalanco.reduce((s, x) => s + (Number(x.valor) || 0), 0)
             : cPagamentos.reduce((s, x) => s + (Number(x.total) || 0), 0);
         const compra = parseFloat(document.getElementById('carro-valorcompra')?.value) || 0;
-        const saldo = r - g - compra;
+        // perda total: o que o seguro pagou é dinheiro que ENTROU no carro
+        const seguro = parseFloat(document.getElementById('carro-indeniz')?.value) || 0;
+        const saldo = r + seguro - g - compra;
         const eg = document.getElementById('bal-gastos');
         if (!eg) return;
         const ec = document.getElementById('bal-compra');
         if (ec) ec.textContent = fmt(compra);
+        const eseg = document.getElementById('bal-seguro');
+        if (eseg) eseg.textContent = fmt(seguro);
         eg.textContent = fmt(g);
         document.getElementById('bal-recebidos').textContent = fmt(r);
         const es = document.getElementById('bal-saldo');
@@ -2408,6 +2433,8 @@
             const setv = (el, v) => { const e = document.getElementById(el); if (e) e.value = (v === undefined || v === null) ? '' : v; };
             setv('carro-valorvenda', c.valorVenda); setv('carro-entrada', c.entrada);
             setv('carro-valorcompra', c.valorCompra);
+            setv('carro-indeniz', c.indenizacaoSeguro);
+            cFotosVistoria = JSON.parse(JSON.stringify(c.fotosVistoria || []));
             const an = c.anuncio || {};
             document.getElementById('carro-disponivel').checked = !!c.disponivel;
             setv('carro-anun-fin', an.finalidade || 'Venda'); setv('carro-anun-preco', an.preco || '');
@@ -2430,14 +2457,14 @@
             document.getElementById('carroModalTitle').textContent = '➕ Novo Carro';
             clearModalInputs(modal);
             cNotas = [];
-            cGastos = []; cVistoria = []; cPagamentos = []; cBalanco = [];
+            cGastos = []; cVistoria = []; cPagamentos = []; cBalanco = []; cFotosVistoria = [];
             cCarnes = []; cDebitos = [];
             const dc = document.getElementById('carro-disponivel'); if (dc) dc.checked = false;
             const sv = document.getElementById('carro-seguro-sem'); if (sv) sv.value = 50;
             document.getElementById('carro-foto-gallery').innerHTML = '';
         }
 
-        renderGastosCarro(); renderVistoriaCarro(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
+        renderGastosCarro(); renderVistoriaCarro(); renderFotosVistoria(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
         renderNotas();
         renderCarnes(); renderDebitos(); renderLocacoes();
 
@@ -2476,6 +2503,8 @@
                 gastosLista: cGastos, vistoria: cVistoria, pagamentos: cPagamentos, balanco: cBalanco,
                 valorVenda: parseFloat(g('carro-valorvenda')) || 0,
                 valorCompra: parseFloat(g('carro-valorcompra')) || 0,
+                indenizacaoSeguro: parseFloat(g('carro-indeniz')) || 0,
+                fotosVistoria: cFotosVistoria,
                 entrada: parseFloat(g('carro-entrada')) || 0,
                 carnes: cCarnes, debitos: cDebitos,
                 disponivel: document.getElementById('carro-disponivel').checked,
@@ -2488,7 +2517,7 @@
                     destaque: document.getElementById('carro-anun-dest').checked
                 },
                 totalGastos: totalG, totalRecebidos: totalR,
-                saldo: totalR - totalG - (parseFloat(g('carro-valorcompra')) || 0),
+                saldo: totalR + (parseFloat(g('carro-indeniz')) || 0) - totalG - (parseFloat(g('carro-valorcompra')) || 0),
                 notas: cNotas,
                 fotos: Array.from(document.querySelectorAll('#carro-foto-gallery img')).map(i => i.src)
             };
@@ -3614,72 +3643,161 @@
         r.readAsText(conversa);
     }
 
-    function zapTogglePic(i, k) {
-        const a = zapAchados[i]; const n = a.fotos[k];
-        a.fotosOk = a.fotosOk || [];
-        const p = a.fotosOk.indexOf(n);
-        if (p >= 0) a.fotosOk.splice(p, 1); else a.fotosOk.push(n);
-        mostrarZap();
+    // ===== DESTINO DE CADA FOTO =====
+    // A Joice pediu: a mesma foto do grupo pode ser prova do gasto, foto de dano
+    // (vistoria) ou foto boa para o anúncio. Ela escolhe olhando a foto grande.
+    const ZAP_DEST = {
+        comp: {rot: '📎 Comprovante deste lançamento', cor: '#1e8449',
+               ajuda: 'Fica presa a este gasto/débito, como prova. Vai para o depósito de fotos.'},
+        vist: {rot: '🔧 Foto de vistoria / dano',      cor: '#c0392b',
+               ajuda: 'Vai para a aba 🔍 Vistoria do carro. Sem marca d\'água — é documento.'},
+        anun: {rot: '📢 Foto para o anúncio',          cor: '#b8912b',
+               ajuda: 'Vai para as fotos do carro e sai no site, já com a marca d\'água.'}
+    };
+    function zapDestinoDe(a, nome) { return (a.destino || {})[nome] || ''; }
+    function zapContaDestino(qual) {
+        let q = 0;
+        zapAchados.forEach(a => Object.keys(a.destino || {}).forEach(k => {
+            if (!qual || a.destino[k] === qual) q++;
+        }));
+        return q;
     }
 
     function zapPrimeiraFoto() {
         let q = 0;
         zapAchados.forEach(a => {
             if (!a.usar || !a.fotos || !a.fotos.length) return;
-            const n = a.fotos.filter(x => zapArquivos[x] && !/\.(mp4|mov|pdf)$/i.test(x))[0];
-            if (n) { a.fotosOk = [n]; q++; }
+            const nome = a.fotos.filter(x => zapArquivos[x] && !/\.(mp4|mov|pdf)$/i.test(x))[0];
+            if (nome) { a.destino = a.destino || {}; a.destino[nome] = 'comp'; q++; }
         });
         mostrarZap();
-        if (!q) alert('Nenhuma linha marcada tem foto por perto. Escolha a PASTA da conversa (com mídia) para as fotos aparecerem.');
+        if (!q) alert('Nenhuma linha marcada tem foto por perto. Escolha a PASTA da conversa (exportada Com mídia) para as fotos aparecerem.');
     }
 
-    function zapVerFoto(i, k) {
-        const a = zapAchados[i]; const n = a.fotos[k]; const u = zapUrlDe(n);
+    // ===== A LUPA =====
+    // Antes eu usava 1 clique para marcar e 2 para ampliar, e a lista se redesenhava
+    // no meio do caminho — por isso ampliava a foto errada e a tela pulava para o topo.
+    // Agora: 1 clique abre a foto grande, e é DENTRO dela que ela escolhe o destino.
+    let zapLupa = {i: 0, k: 0};
+
+    function zapAbrirFoto(i, k) { zapLupa = {i: i, k: k}; zapDesenharLupa(); }
+
+    function zapFecharLupa() {
+        const ov = document.getElementById('zap-lupa');
+        if (ov) ov.remove();
+        zapAtualizarLinha(zapLupa.i);
+        zapAtualizarResumo();
+    }
+
+    function zapLupaAndar(passo) {
+        const a = zapAchados[zapLupa.i];
+        const tem = (a.fotos || []).filter(x => zapArquivos[x]);
+        if (tem.length < 2) return;
+        let p = tem.indexOf(a.fotos[zapLupa.k]);
+        p = (p + passo + tem.length) % tem.length;
+        zapLupa.k = a.fotos.indexOf(tem[p]);
+        zapDesenharLupa();
+    }
+
+    function zapPorDestino(qual) {
+        const a = zapAchados[zapLupa.i], nome = a.fotos[zapLupa.k];
+        a.destino = a.destino || {};
+        if (a.destino[nome] === qual) delete a.destino[nome]; else a.destino[nome] = qual;
+        if (qual && a.destino[nome] && !a.usar && a.tipo !== 'nada') a.usar = true;
+        zapDesenharLupa();
+    }
+
+    function zapDesenharLupa() {
+        const a = zapAchados[zapLupa.i], nome = a.fotos[zapLupa.k], u = zapUrlDe(nome);
         if (!u) return;
         let ov = document.getElementById('zap-lupa');
         if (!ov) {
             ov = document.createElement('div'); ov.id = 'zap-lupa';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;' +
-                'flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px';
-            ov.onclick = () => ov.remove();
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;' +
+                'flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px';
+            ov.onclick = e => { if (e.target === ov) zapFecharLupa(); };
             document.body.appendChild(ov);
+            document.addEventListener('keydown', zapTeclaLupa);
         }
-        const eVideo = /\.(mp4|mov)$/i.test(n), ePdf = /\.pdf$/i.test(n);
-        ov.innerHTML = (eVideo ? '<video src="' + u + '" controls style="max-width:92vw;max-height:74vh;border-radius:8px"></video>'
-                      : ePdf  ? '<iframe src="' + u + '" style="width:92vw;height:74vh;border:0;background:#fff;border-radius:8px"></iframe>'
-                              : '<img src="' + u + '" style="max-width:92vw;max-height:74vh;object-fit:contain;border-radius:8px">') +
+        const tem = (a.fotos || []).filter(x => zapArquivos[x]);
+        const pos = tem.indexOf(nome) + 1;
+        const atual = zapDestinoDe(a, nome);
+        const eVideo = /\.(mp4|mov)$/i.test(nome), ePdf = /\.pdf$/i.test(nome);
+        const midia = eVideo ? '<video src="' + u + '" controls style="max-width:88vw;max-height:58vh;border-radius:8px"></video>'
+                    : ePdf  ? '<iframe src="' + u + '" style="width:88vw;height:58vh;border:0;background:#fff;border-radius:8px"></iframe>'
+                            : '<img src="' + u + '" style="max-width:88vw;max-height:58vh;object-fit:contain;border-radius:8px">';
+        const botao = q => '<button onclick="zapPorDestino(\'' + q + '\')" style="border:2px solid ' +
+            ZAP_DEST[q].cor + ';background:' + (atual === q ? ZAP_DEST[q].cor : 'transparent') +
+            ';color:' + (atual === q ? '#fff' : '#fff') + ';padding:9px 14px;border-radius:8px;cursor:pointer;' +
+            'font-size:13px;font-weight:600">' + (atual === q ? '✓ ' : '') + ZAP_DEST[q].rot + '</button>';
+        ov.innerHTML =
+            '<div style="display:flex;align-items:center;gap:14px">' +
+              (tem.length > 1 ? '<button onclick="zapLupaAndar(-1)" style="background:#ffffff22;color:#fff;border:0;' +
+                'font-size:26px;padding:8px 14px;border-radius:8px;cursor:pointer">‹</button>' : '') +
+              midia +
+              (tem.length > 1 ? '<button onclick="zapLupaAndar(1)" style="background:#ffffff22;color:#fff;border:0;' +
+                'font-size:26px;padding:8px 14px;border-radius:8px;cursor:pointer">›</button>' : '') +
+            '</div>' +
             '<div style="color:#fff;font-size:14px;text-align:center">' + escapaHtml(a.dia) + ' · ' +
-            escapaHtml(a.obs) + ' · ' + fmt(a.gasto) + '</div>' +
-            '<div style="color:#cfd8e3;font-size:12px">clique em qualquer lugar para fechar</div>';
+              escapaHtml(a.obs) + ' · <b>' + fmt(a.gasto) + '</b>' +
+              (tem.length > 1 ? ' <span style="color:#aab6c2">(foto ' + pos + ' de ' + tem.length + ')</span>' : '') + '</div>' +
+            '<div style="color:#cfd8e3;font-size:13px">Para que serve esta foto? (clique de novo para desmarcar)</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
+              botao('comp') + botao('vist') + botao('anun') + '</div>' +
+            '<button onclick="zapFecharLupa()" style="background:#fff;color:#33475b;border:0;padding:10px 24px;' +
+              'border-radius:8px;cursor:pointer;font-weight:600">✕ Fechar (Esc)</button>' +
+            '<div style="color:#8a97a5;font-size:11px">setas ← → passam as fotos desta linha</div>';
     }
 
-    // A tirinha de fotos que fica embaixo da descricao da linha
+    function zapTeclaLupa(ev) {
+        if (!document.getElementById('zap-lupa')) {
+            document.removeEventListener('keydown', zapTeclaLupa); return;
+        }
+        if (ev.key === 'Escape') { ev.preventDefault(); zapFecharLupa(); }
+        else if (ev.key === 'ArrowLeft')  { ev.preventDefault(); zapLupaAndar(-1); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); zapLupaAndar(1); }
+    }
+
+    // A tirinha de fotos da linha. Redesenho SÓ ela quando algo muda —
+    // é o que impede a tela de pular para o topo.
     function zapTirinha(a, i) {
-        if (!a.fotos || !a.fotos.length) return '';
+        const vazio = '<div id="zap-fotos-' + i + '"></div>';
+        if (!a.fotos || !a.fotos.length) return vazio;
         const tem = a.fotos.filter(x => zapArquivos[x]);
-        if (!tem.length) return '<div style="font-size:10px;color:#7b8794">📷 ' + a.fotos.length +
-            ' foto(s) foram mandadas neste momento da conversa — escolha a <b>pasta</b> para poder ver</div>';
+        if (!tem.length) return '<div id="zap-fotos-' + i + '" style="font-size:10px;color:#7b8794">📷 ' +
+            a.fotos.length + ' foto(s) foram mandadas neste momento da conversa — escolha a <b>pasta</b> para ver</div>';
         const quadros = tem.slice(0, 8).map(nome => {
             const k = a.fotos.indexOf(nome);
-            const sel = (a.fotosOk || []).indexOf(nome) >= 0;
-            const borda = sel ? '#1e8449' : '#dfe6ec';
-            if (/\.(mp4|mov|pdf)$/i.test(nome)) {
-                return '<span onclick="zapTogglePic(' + i + ',' + k + ')" ondblclick="zapVerFoto(' + i + ',' + k + ')" ' +
-                    'title="' + escapaHtml(nome) + '" style="cursor:pointer;width:44px;height:44px;display:flex;' +
-                    'align-items:center;justify-content:center;border-radius:5px;background:#eef2f7;border:2px solid ' +
-                    borda + '">' + (/\.pdf$/i.test(nome) ? '📄' : '🎬') + '</span>';
-            }
-            return '<img src="' + zapUrlDe(nome) + '" onclick="zapTogglePic(' + i + ',' + k + ')" ' +
-                'ondblclick="zapVerFoto(' + i + ',' + k + ')" title="1 clique = guardar esta foto junto · 2 cliques = ampliar" ' +
-                'style="width:44px;height:44px;object-fit:cover;border-radius:5px;cursor:pointer;border:2px solid ' + borda + '">';
+            const d = zapDestinoDe(a, nome);
+            const borda = d ? ZAP_DEST[d].cor : '#dfe6ec';
+            const larg = d ? '3px' : '2px';
+            const canto = d ? '<span style="position:absolute;right:-3px;top:-4px;font-size:11px">' +
+                ZAP_DEST[d].rot.slice(0, 2) + '</span>' : '';
+            const corpo = /\.(mp4|mov|pdf)$/i.test(nome)
+                ? '<span style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;' +
+                  'border-radius:5px;background:#eef2f7;border:' + larg + ' solid ' + borda + '">' +
+                  (/\.pdf$/i.test(nome) ? '📄' : '🎬') + '</span>'
+                : '<img src="' + zapUrlDe(nome) + '" style="width:46px;height:46px;object-fit:cover;' +
+                  'border-radius:5px;border:' + larg + ' solid ' + borda + '">';
+            return '<span onclick="zapAbrirFoto(' + i + ',' + k + ')" title="clique para ver grande e escolher para que serve" ' +
+                   'style="position:relative;display:inline-block;cursor:zoom-in">' + corpo + canto + '</span>';
         }).join('');
-        const nOk = (a.fotosOk || []).length;
-        return '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;align-items:center">' + quadros +
-            '<a href="#" onclick="zapVerFoto(' + i + ',' + a.fotos.indexOf(tem[0]) + ');return false" ' +
-            'style="font-size:11px;color:#b8912b;text-decoration:none">🔍 ampliar</a>' +
-            (nOk ? '<span style="font-size:10px;color:#1e8449">✓ ' + nOk + ' foto(s) vão junto</span>' : '') +
+        const escolhidas = Object.keys(a.destino || {}).length;
+        return '<div id="zap-fotos-' + i + '" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;align-items:center">' +
+            quadros +
+            (tem.length > 8 ? '<span style="font-size:10px;color:#7b8794">+' + (tem.length - 8) + '</span>' : '') +
+            (escolhidas ? '<span style="font-size:10px;color:#1e8449">✓ ' + escolhidas + ' escolhida(s)</span>'
+                        : '<span style="font-size:10px;color:#7b8794">clique na foto para ver grande</span>') +
             '</div>';
     }
+
+    function zapAtualizarLinha(i) {
+        const box = document.getElementById('zap-fotos-' + i);
+        if (box) box.outerHTML = zapTirinha(zapAchados[i], i);
+    }
+
+    // Marcar/desmarcar não redesenha a lista: só atualiza os números em cima.
+    function zapUsar(i, ok) { zapAchados[i].usar = ok; zapAtualizarResumo(); }
 
     function encherSelectZap() {
         const sel = document.getElementById('zap-carro');
@@ -3870,19 +3988,24 @@
     // viram "repetição" e já nascem desmarcadas.
     function agruparZap() {
         const vistos = {};
+        // "de tal data adiante": guardo por carro a data da última importação deste grupo,
+        // e tudo dessa data para trás já nasce desmarcado. Era isso que duplicava.
+        const carroZ = carroDoZap();
+        const corte = (carroZ && carroZ.zapUltimaData) || '';
         zapAchados.forEach(a => {
+            a.jaImportado = !!(corte && a.iso && a.iso <= corte);
             const k = zapChave(a);
             if (vistos[k] === undefined) { vistos[k] = a; a.repete = 1; a.datas = [a.dia]; }
             else { a.repetida = true; vistos[k].repete++; vistos[k].datas.push(a.dia); }
             if (!a.tipoTravado) a.tipo = classificarZap(a);
             a.talvezCliente = (a.tipo === 'gasto') && ZAP_TALVEZ_CLIENTE.test(a.obs);
             // de quem é: pelo período de locação, senão pelo nome na mensagem
-            const carro = carroDoZap();
+            const carro = carroZ;
             const dono = (a.tipo === 'cobrar' || a.tipo === 'dano' ||
                           a.tipo === 'desconto' || a.tipo === 'recebido')
                        ? donoDaLinha(carro, a) : null;
             if (dono && !a.clienteTravado) { a.cliente = dono.nome; a.tel = dono.tel; a.como = dono.como; }
-            a.usar = a.tipo !== 'nada' && !a.repetida;
+            a.usar = a.tipo !== 'nada' && !a.repetida && !a.jaImportado;
         });
         zapParecidas();
     }
@@ -3935,56 +4058,107 @@
               'é só marcar as outras na aba "repetidas".');
     }
 
+    const ZAP_ORDEM = ['gasto','jg','cobrar','dano','desconto','recebido','fornecedor','nada'];
+    const zapVivas = () => zapAchados.filter(a => !a.repetida && !a.jaImportado);
+
+    function zapHtmlAbas() {
+        const conta = t => zapVivas().filter(a => a.tipo === t).length;
+        const aba = (id, txt, q) =>
+            '<button class="btn btn-small" onclick="zapVerFiltro(\'' + id + '\')" style="' +
+            (zapFiltro === id ? 'background:#b8912b;color:#fff' : 'background:#eef2f7;color:#33475b') +
+            '">' + txt + ' (' + q + ')</button>';
+        const antigas = zapAchados.filter(a => a.jaImportado).length;
+        return ZAP_ORDEM.map(t => aba(t, TIPOS[t].rot, conta(t))).join('') +
+               aba('repetida', '🔁 Repetidas', zapAchados.filter(a => a.repetida).length) +
+               (antigas ? aba('antigas', '⏮ Já importadas antes', antigas) : '') +
+               aba('tudo', 'Tudo', zapAchados.length);
+    }
+
+    function zapHtmlResumo() {
+        const marcados = zapAchados.filter(a => a.usar);
+        const somaDe = t => marcados.filter(a => a.tipo === t).reduce((x, a) => x + a.gasto, 0);
+        const totalGastos = somaDe('gasto') + somaDe('jg') + somaDe('fornecedor');
+        const totalCobrar = somaDe('cobrar') + somaDe('dano');
+        const somas = zapAchados.filter(a => ZAP_SOMA.test(a.obs));
+        const maiorSoma = somas.length ? somas.reduce((m, a) => a.gasto > m.gasto ? a : m) : null;
+        const comFoto = zapAchados.filter(a => (a.fotos || []).some(x => zapArquivos[x])).length;
+        const nComp = zapContaDestino('comp'), nVist = zapContaDestino('vist'), nAnun = zapContaDestino('anun');
+        const passou = maiorSoma && totalGastos > maiorSoma.gasto * 1.15;
+        return '<div class="carro" style="line-height:1.7">' +
+            'Marcadas: <b>' + marcados.length + '</b> linhas · gasto do carro <b>' + fmt(totalGastos) +
+            '</b> · a cobrar do cliente <b>' + fmt(totalCobrar) + '</b> · recebido <b>' + fmt(somaDe('recebido')) +
+            '</b> · desconto <b>' + fmt(somaDe('desconto')) + '</b>' +
+            (comFoto ? '<br>📷 <b>' + comFoto + '</b> linhas têm foto do lado' +
+                (nComp || nVist || nAnun
+                    ? ' · escolhidas: ' + (nComp ? '<b>' + nComp + '</b> comprovante ' : '') +
+                      (nVist ? '<b>' + nVist + '</b> vistoria ' : '') + (nAnun ? '<b>' + nAnun + '</b> anúncio' : '')
+                    : ' — clique na foto para ver grande e dizer para que ela serve') : '') +
+            '</div>' +
+            (maiorSoma ? '<div style="margin-top:6px;padding:8px 10px;border-radius:6px;font-size:13px;background:' +
+                (passou ? '#fdecea' : '#e8f6ee') + ';border:1px solid ' + (passou ? '#c0392b' : '#1e8449') + '">' +
+                '📋 No grupo, o maior total escrito foi <b>' + fmt(maiorSoma.gasto) + '</b> (' + maiorSoma.dia + '). ' +
+                (passou ? 'O gasto do carro que você marcou passou disso — ainda deve ter repetição ou soma marcada.'
+                        : 'O gasto do carro está dentro do que ele escreveu.') + '</div>' : '');
+    }
+
+    function zapAtualizarResumo() {
+        const a = document.getElementById('zap-abas');    if (a) a.innerHTML = zapHtmlAbas();
+        const r = document.getElementById('zap-resumo');  if (r) r.innerHTML = zapHtmlResumo();
+        const b = document.getElementById('zap-btn-gravar');
+        if (b) b.textContent = '💾 Gravar as ' + zapAchados.filter(x => x.usar).length + ' marcadas';
+    }
+
     function mostrarZap() {
         const el = document.getElementById('zap-resultado');
         if (!el) return;
+        // guarda onde ela estava olhando: redesenhar jogava a tela para o topo
+        const rolAntes = document.getElementById('zap-rolagem');
+        const yLista = rolAntes ? rolAntes.scrollTop : 0;
+        const yPagina = window.scrollY;
+
         if (!zapAchados.length) {
             el.innerHTML = '<div class="aviso-pend">Não achei nenhuma mensagem com valor em dinheiro nesse arquivo. Confere se é mesmo a conversa do grupo do carro e me manda de novo.</div>';
             return;
         }
-        const marcados = zapAchados.filter(a => a.usar);
-        const comFotoPerto = zapAchados.filter(a => (a.fotos || []).some(x => zapArquivos[x])).length;
-        const escolhidas = zapAchados.reduce((q, a) => q + ((a.fotosOk || []).length), 0);
-        const somaDe = t => marcados.filter(a => a.tipo === t).reduce((x, a) => x + a.gasto, 0);
-        const conta   = t => zapAchados.filter(a => a.tipo === t && !a.repetida).length;
+        const carro = carroDoZap();
+        const temLocacao = carro && (carro.locacoes || []).length;
+        const corte = carro && carro.zapUltimaData;
+        const antigas = zapAchados.filter(a => a.jaImportado).length;
+        const conta = t => zapVivas().filter(a => a.tipo === t).length;
 
-        const somas = zapAchados.filter(a => ZAP_SOMA.test(a.obs));
-        const maiorSoma = somas.length ? somas.reduce((m, a) => a.gasto > m.gasto ? a : m) : null;
-        const totalGastos = somaDe('gasto') + somaDe('jg');
-        const totalCobrar = somaDe('cobrar') + somaDe('dano');
-
-        const ORDEM = ['gasto','jg','cobrar','dano','desconto','recebido','fornecedor','nada'];
         const lista = zapAchados.map((a, i) => ({a, i}))
             .filter(({a}) => zapFiltro === 'tudo' ? true
                            : zapFiltro === 'repetida' ? a.repetida
-                           : (a.tipo === zapFiltro && !a.repetida));
-
-        const aba = (id, txt, n) =>
-            `<button class="btn btn-small" onclick="zapVerFiltro('${id}')"
-               style="${zapFiltro === id ? 'background:#b8912b;color:#fff' : 'background:#eef2f7;color:#33475b'}">
-               ${txt} (${n})</button>`;
+                           : zapFiltro === 'antigas' ? a.jaImportado
+                           : (a.tipo === zapFiltro && !a.repetida && !a.jaImportado));
 
         const precisaDeCliente = t => ['cobrar','dano','desconto','recebido'].includes(t);
-        const carro = carroDoZap();
-        const temLocacao = carro && (carro.locacoes || []).length;
 
         el.innerHTML = `<div class="vd-card">
             <h4>Achei ${zapAchados.length} mensagens com valor</h4>
             <div class="carro" style="background:#eef2f7;padding:9px 11px;border-radius:6px;font-size:13px">
               Nem tudo no grupo é gasto do carro. Separei por <b>o que é</b> — e nas linhas de
-              cobrança, <b>de quem</b>. Confira a natureza de cada uma antes de gravar.
+              cobrança, <b>de quem</b>. Clique numa foto para ver grande e dizer se ela é
+              <b>comprovante</b>, <b>vistoria</b> ou <b>foto de anúncio</b>.
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
-              ${ORDEM.map(t => aba(t, TIPOS[t].rot, conta(t))).join('')}
-              ${aba('repetida','🔁 Repetidas', zapAchados.filter(a => a.repetida).length)}
-              ${aba('tudo','Tudo', zapAchados.length)}
-            </div>
+
+            ${corte ? `<div class="aviso-versao" style="background:#f3faf5;border-color:#cfe8d8;margin-top:8px">
+               ⏮ Você já trouxe as coisas deste grupo até <b>${escapaHtml(dataBonitaIso(corte))}</b>.
+               Deixei <b>${antigas}</b> linha(s) dessa data para trás <b>desmarcadas</b>, para não duplicar.
+               Elas estão na aba "⏮ Já importadas antes" se você quiser conferir.
+             </div>` : ''}
+
+            <div id="zap-abas" style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">${zapHtmlAbas()}</div>
+
             ${TIPOS[zapFiltro] ? `<div class="carro" style="background:${TIPOS[zapFiltro].cor || '#eef2f7'};
                  padding:8px 10px;border-radius:6px;font-size:13px">${TIPOS[zapFiltro].ajuda}</div>` :
               (zapFiltro === 'repetida' ? `<div class="carro" style="background:#f7f7f7;padding:8px 10px;
                  border-radius:6px;font-size:13px">O Geraldo posta o orçamento e depois posta de novo quando
                  paga. Deixei marcada só a primeira de cada. Se alguma aqui for um serviço feito
-                 duas vezes de verdade, mude a natureza dela.</div>` : '')}
+                 duas vezes de verdade, mude a natureza dela.</div>` :
+               zapFiltro === 'antigas' ? `<div class="carro" style="background:#f3faf5;padding:8px 10px;
+                 border-radius:6px;font-size:13px">Estas são anteriores à sua última importação deste grupo.
+                 Já estão no carro — por isso vêm desmarcadas. Só marque se tiver certeza de que faltou.</div>` : '')}
 
             ${!temLocacao && (conta('cobrar') + conta('dano')) ? `<div class="aviso-pend" style="margin-top:8px">
                🔑 Este carro ainda não tem <b>quem ficou com ele e quando</b> cadastrado. Sem isso eu não
@@ -3992,24 +4166,9 @@
                <b>🔑 Quem ficou com o carro</b> e preencha os períodos. Enquanto isso, escreva o nome na mão.
              </div>` : ''}
 
-            <div class="carro" style="margin-top:10px;line-height:1.7">
-              Marcadas: <b>${marcados.length}</b> linhas ·
-              gasto do carro <b>${fmt(totalGastos)}</b> ·
-              a cobrar do cliente <b>${fmt(totalCobrar)}</b> ·
-              recebido <b>${fmt(somaDe('recebido'))}</b> ·
-              desconto <b>${fmt(somaDe('desconto'))}</b> ·
-              fornecedor <b>${fmt(somaDe('fornecedor'))}</b>
-              ${comFotoPerto ? `<br>📷 <b>${comFotoPerto}</b> linhas têm foto do WhatsApp do lado${escolhidas ? ` · <b>${escolhidas}</b> foto(s) marcadas para guardar junto` : ' — clique na foto para guardá-la junto com o lançamento'}` : ''}
-            </div>
-            ${maiorSoma ? `<div style="margin-top:6px;padding:8px 10px;border-radius:6px;font-size:13px;
-                 background:${totalGastos > maiorSoma.gasto * 1.15 ? '#fdecea' : '#e8f6ee'};
-                 border:1px solid ${totalGastos > maiorSoma.gasto * 1.15 ? '#c0392b' : '#1e8449'}">
-                 📋 No grupo, o maior total escrito foi <b>${fmt(maiorSoma.gasto)}</b> (${maiorSoma.dia}).
-                 ${totalGastos > maiorSoma.gasto * 1.15
-                    ? 'O gasto do carro que você marcou passou disso — ainda deve ter repetição ou soma marcada.'
-                    : 'O gasto do carro está dentro do que ele escreveu.'}</div>` : ''}
+            <div id="zap-resumo" style="margin-top:10px">${zapHtmlResumo()}</div>
 
-            <div style="max-height:440px;overflow:auto;margin-top:10px"><table class="mini-table">
+            <div id="zap-rolagem" style="max-height:440px;overflow:auto;margin-top:10px"><table class="mini-table">
               <thead><tr><th style="width:34px">Usar</th><th style="width:100px">Data</th>
                 <th style="width:92px">Valor</th><th>O que dizia</th>
                 <th style="width:150px">O que é</th><th style="width:140px">De quem</th></tr></thead>
@@ -4017,19 +4176,21 @@
                 const selo = a.repete > 1 && !a.repetida
                     ? ` <a href="#" onclick="zapMostrarDatas(${i});return false"
                          style="font-size:11px;color:#b8912b;text-decoration:none">🔁 ${a.repete}×</a>` : '';
-                return `<tr style="background:${TIPOS[a.tipo] ? TIPOS[a.tipo].cor : ''}">
+                return `<tr style="background:${a.jaImportado ? '#fbfbfb' : (TIPOS[a.tipo] ? TIPOS[a.tipo].cor : '')};
+                            ${a.jaImportado ? 'opacity:.65' : ''}">
                 <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''}
-                    onchange="zapAchados[${i}].usar=this.checked;mostrarZap()"></td>
+                    onchange="zapUsar(${i}, this.checked)"></td>
                 <td><input value="${escapaHtml(a.dia)}" onchange="zapAchados[${i}].dia=this.value"></td>
                 <td><input type="number" step="0.01" value="${a.gasto}"
                     onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;agruparZap();mostrarZap()"></td>
                 <td><input value="${escapaHtml(a.obs)}" style="width:74%"
                     onchange="zapAchados[${i}].obs=this.value">${selo}
+                    ${a.jaImportado ? '<div style="font-size:10px;color:#7b8794">⏮ já importada antes</div>' : ''}
                     ${a.talvezCliente ? '<div style="font-size:10px;color:#b8912b">⚠️ gasolina/limpeza costuma ser do inquilino — confira</div>' : ''}
                     ${a.parecida ? `<div style="font-size:10px;color:#b8912b">🔎 <b>mesmo valor e palavra parecida</b> em ${escapaHtml(a.parecida.join(' · '))} — é o mesmo serviço ou são dois? Olhe as fotos.</div>` : ''}
                     ${zapTirinha(a, i)}</td>
                 <td><select onchange="zapTrocarTipo(${i}, this.value)">
-                    ${ORDEM.map(t => `<option value="${t}" ${a.tipo === t ? 'selected' : ''}>${TIPOS[t].rot}</option>`).join('')}
+                    ${ZAP_ORDEM.map(t => `<option value="${t}" ${a.tipo === t ? 'selected' : ''}>${TIPOS[t].rot}</option>`).join('')}
                     </select></td>
                 <td>${precisaDeCliente(a.tipo)
                     ? `<input value="${escapaHtml(a.cliente || '')}" list="lista-de-clientes"
@@ -4041,12 +4202,24 @@
                 '<tr><td colspan="6" style="padding:14px;color:#7b8794">Nada nesta aba.</td></tr>'}</tbody>
             </table></div>
             <div class="vd-rodape">
-              <button class="btn" onclick="gravarZap()">💾 Gravar as ${marcados.length} marcadas</button>
-              ${comFotoPerto ? `<button class="btn btn-small" onclick="zapPrimeiraFoto()">📎 Guardar a 1ª foto de cada linha marcada</button>` : ''}
+              <button class="btn" id="zap-btn-gravar" onclick="gravarZap()">💾 Gravar as ${zapAchados.filter(a => a.usar).length} marcadas</button>
+              <button class="btn btn-small" onclick="zapPrimeiraFoto()">📎 Guardar a 1ª foto de cada linha marcada</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>a.usar=false);mostrarZap()">Desmarcar tudo</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>{a.tipoTravado=false;a.clienteTravado=false});agruparZap();mostrarZap()">↩️ Voltar ao que eu sugeri</button>
             </div>
         </div>`;
+
+        const rolDepois = document.getElementById('zap-rolagem');
+        if (rolDepois && yLista) rolDepois.scrollTop = yLista;
+        if (yPagina) window.scrollTo(0, yPagina);
+    }
+
+    // "2025-02-22" -> "22 fev. 2025"
+    function dataBonitaIso(iso) {
+        const M = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        const p = String(iso || '').split('-');
+        if (p.length !== 3) return String(iso || '');
+        return Number(p[2]) + ' ' + (M[Number(p[1]) - 1] || '?') + '. ' + p[0];
     }
 
     function zapTrocarTipo(i, t) {
@@ -4083,28 +4256,73 @@
         window.open(r.data.signedUrl, '_blank');
     }
 
+    function lerComoDataUrl(f) {
+        return new Promise(res => {
+            const r = new FileReader();
+            r.onload = e => res(String(e.target.result || ''));
+            r.onerror = () => res('');
+            r.readAsDataURL(f);
+        });
+    }
+    // Encolher SEM marca d'água — vistoria é documento, documento não se marca.
+    function encolherSimples(dataUrl, max) {
+        return new Promise(res => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.width, h = img.height;
+                if (w > max) { h = Math.round(h * max / w); w = max; }
+                const cv = document.createElement('canvas');
+                cv.width = w; cv.height = h;
+                cv.getContext('2d').drawImage(img, 0, 0, w, h);
+                res(cv.toDataURL('image/jpeg', 0.72));
+            };
+            img.onerror = () => res('');
+            img.src = dataUrl;
+        });
+    }
+
     async function gravarZap() {
         const c = carroDoZap();
         if (!c) return;
         const usar = zapAchados.filter(a => a.usar && a.gasto && a.tipo !== 'nada');
         if (!usar.length) return alert('Nenhuma linha marcada.');
 
-        // 1) as fotos que ela marcou vao para o deposito ANTES de gravar as linhas
-        const totalFotos = usar.reduce((q, a) => q + ((a.fotosOk || []).length), 0);
-        let fotosOk = 0, fotosRuins = 0, motivoFoto = '';
-        if (totalFotos) {
+        // 1) as fotos que ela escolheu, cada uma para o seu lugar
+        const tarefas = [];
+        usar.forEach(a => Object.keys(a.destino || {}).forEach(nome => {
+            if (zapArquivos[nome]) tarefas.push({a: a, nome: nome, dest: a.destino[nome]});
+        }));
+        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0;
+        c.fotos = c.fotos || [];
+        c.fotosVistoria = c.fotosVistoria || [];
+        c.zapFotosUsadas = c.zapFotosUsadas || [];
+        if (tarefas.length) {
             const cx = document.getElementById('zap-resultado');
             if (cx) cx.insertAdjacentHTML('afterbegin',
-                '<div id="zap-subindo" class="aviso-pend">📤 Guardando as fotos... 0 de ' + totalFotos + '. Não feche a página.</div>');
-            for (const a of usar) {
-                a.arquivos = [];
-                for (const nome of (a.fotosOk || [])) {
-                    const r = await subirFotoZap(c, nome);
-                    if (r && r.path) { a.arquivos.push(r); fotosOk++; }
+                '<div id="zap-subindo" class="aviso-pend">📤 Guardando as fotos... 0 de ' + tarefas.length + '. Não feche a página.</div>');
+            let feitas = 0;
+            for (const t of tarefas) {
+                if (t.dest === 'comp') {
+                    const r = await subirFotoZap(c, t.nome);
+                    if (r && r.path) { (t.a.arquivos = t.a.arquivos || []).push(r); fotosOk++; }
                     else { fotosRuins++; if (!motivoFoto && r && r.erro) motivoFoto = r.erro; }
-                    const p = document.getElementById('zap-subindo');
-                    if (p) p.textContent = '📤 Guardando as fotos... ' + (fotosOk + fotosRuins) + ' de ' + totalFotos + '.';
+                } else if (c.zapFotosUsadas.indexOf(t.nome) >= 0) {
+                    // já trouxe esta foto do grupo antes — não duplico
+                } else {
+                    const bruta = await lerComoDataUrl(zapArquivos[t.nome]);
+                    if (!bruta) { fotosRuins++; }
+                    else if (t.dest === 'anun') {
+                        const pronta = await encolherFoto(bruta);      // com marca d'água: vai para o site
+                        if (pronta) { c.fotos.push(pronta); c.zapFotosUsadas.push(t.nome); nAnun++; }
+                    } else {
+                        const pronta = await encolherSimples(bruta, 1200);  // vistoria é documento: sem marca
+                        if (pronta) { c.fotosVistoria.push({nome: t.nome, dia: t.a.dia, foto: pronta});
+                                      c.zapFotosUsadas.push(t.nome); nVist++; }
+                    }
                 }
+                feitas++;
+                const p = document.getElementById('zap-subindo');
+                if (p) p.textContent = '📤 Guardando as fotos... ' + feitas + ' de ' + tarefas.length + '.';
             }
             const p = document.getElementById('zap-subindo'); if (p) p.remove();
         }
@@ -4160,6 +4378,14 @@
             }
         });
 
+        // "de tal data adiante": guardo a data mais nova que entrou, para a próxima
+        // importação deste grupo já vir com o passado desmarcado.
+        const datas = usar.map(a => a.iso).filter(Boolean).sort();
+        if (datas.length) {
+            const ultima = datas[datas.length - 1];
+            if (!c.zapUltimaData || ultima > c.zapUltimaData) c.zapUltimaData = ultima;
+        }
+
         saveData();
         const linha = (q, txt) => q ? `<li>${q} ${txt}</li>` : '';
         const el = document.getElementById('zap-resultado');
@@ -4174,7 +4400,10 @@
               ${linha(n.desconto, 'desconto(s) lançados como crédito do cliente')}
               ${linha(n.recebido, 'recebimento(s) na aba 💰 Pagamentos')}
             </ul>
-            ${fotosOk ? `<div style="margin-top:6px">📷 <b>${fotosOk}</b> foto(s) guardadas junto — aparecem com 📎 na linha do gasto/débito.</div>` : ''}
+            ${fotosOk ? `<div style="margin-top:6px">📎 <b>${fotosOk}</b> comprovante(s) guardado(s) — aparecem com 📎 na linha do gasto/débito.</div>` : ''}
+            ${nAnun ? `<div style="margin-top:6px">📢 <b>${nAnun}</b> foto(s) foram para as <b>fotos do carro</b> (já com a marca d'água) — prontas para o anúncio.</div>` : ''}
+            ${nVist ? `<div style="margin-top:6px">🔧 <b>${nVist}</b> foto(s) de <b>vistoria/dano</b> guardadas na ficha do carro, sem marca d'água.</div>` : ''}
+            ${c.zapUltimaData ? `<div style="margin-top:6px">⏮ Marquei que este grupo já foi trazido até <b>${escapaHtml(dataBonitaIso(c.zapUltimaData))}</b>. Da próxima vez eu só trago o que for dessa data para a frente.</div>` : ''}
             ${fotosRuins ? `<div class="aviso-pend" style="margin-top:8px">⚠️ <b>${fotosRuins}</b> foto(s) não subiram.
                Os lançamentos foram gravados do mesmo jeito — só as fotos ficaram de fora.
                ${motivoFoto ? `<br><small>Motivo: ${escapaHtml(motivoFoto)}</small>` : ''}</div>` : ''}
