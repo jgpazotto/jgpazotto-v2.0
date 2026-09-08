@@ -103,6 +103,20 @@ Ou seja: você já pode mandar foto do WhatsApp direto para o anúncio hoje.
 
 ---
 
+## 📱 O celular está resolvido
+
+O menu tinha largura fixa e sobrava quase nada de tela. Agora, no celular, ele fica **escondido**
+e você abre no botão **☰** no canto de cima. Ele fecha sozinho quando você escolhe uma tela,
+e também dá para fechar no **✕** ou tocando fora.
+
+Testei numa tela de tamanho de iPhone aqui: o conteúdo agora usa a largura toda e não precisa
+mais arrastar a página de lado.
+
+**Uma diferença que existe mesmo entre computador e celular:** escolher a **pasta** do WhatsApp
+(aquela com as fotos) o iPhone não deixa — isso é limitação dele, não do sistema. Então:
+**a importação com fotos você faz no computador**; no celular você usa o sistema normalmente,
+inclusive o 📸 para tirar foto na hora.
+
 ## ⚠️ Abra com Cmd + Shift + R
 
 O sistema mudou hoje duas vezes. Se a tela ainda estiver com o defeito antigo, é o navegador

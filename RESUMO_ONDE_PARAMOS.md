@@ -961,3 +961,29 @@ destino grava · ao fechar, só a tirinha da linha muda · corte marca 62 e erra
 3. Geraldo como dono em 🧑‍💼 Funcionários.
 4. Encher a vitrine — agora ela pode mandar foto do WhatsApp direto para o anúncio.
 5. Ela conferir se o balanço do C-MAX AZUL fecha depois de lançar a indenização do seguro.
+
+
+## 📱 08/09 parte 3 — o celular (commit `b8678ad`)
+
+Ela tentou entrar pelo iPhone: **o menu ocupava dois terços da tela e não dava para mexer.**
+
+**A causa (armadilha de CSS):** já existia `@media (max-width:768px){ .sidebar{ width:150px } }`,
+mas **não fazia efeito nenhum** — a regra de cima é `.sidebar{ width:250px; flex:0 0 250px }`,
+e **dentro de um flex container o `flex-basis` manda mais que o `width`**. Numa tela de 390px
+sobravam 140px para o conteúdo. **Lição: ao “corrigir” largura de item flex, mexer no `flex`,
+não só no `width`.**
+
+**Como ficou:** em `<=820px` o menu virou **gaveta** — `.sidebar` `position:fixed` com
+`transform: translateX(-102%)`, abre com `body.menu-aberto`, fundo escuro `#fundo-menu`
+(z-index 1100, gaveta 1200 — acima do `.modal`, que é 1000). Botão **☰** (`#btn-menu`) dentro
+do `.header`, ✕ (`#btn-fecha-menu`) no topo da gaveta, e `switchModule()` chama `fecharMenu()`.
+
+**Conferido com Playwright em 390×844** (chromium do container, `file://` do sistema, escondendo
+o `#loginContainer` e mostrando o `#appContainer` por JS): conteúdo com 390px, **sem rolagem
+lateral**, botão visível, gaveta abre com 290px e fundo escuro, e clicar num item fecha e troca
+de módulo. Receita boa, repetir para qualquer mexida de layout — não depende do celular dela.
+⚠️ `switchModule` usa o `event` global: chamar por `p.evaluate(()=>switchModule('carros'))` dá
+`Cannot read properties of undefined (reading 'target')`. **Clicar no link de verdade** (`p.click`).
+
+⚠️ **`<input webkitdirectory>` não funciona no Safari do iPhone** — escolher a *pasta* do
+WhatsApp só dá no computador. No celular ela usa o `.txt` ou o 📸 da câmera. Dito a ela.
