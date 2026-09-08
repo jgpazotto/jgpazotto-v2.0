@@ -987,3 +987,40 @@ de módulo. Receita boa, repetir para qualquer mexida de layout — não depende
 
 ⚠️ **`<input webkitdirectory>` não funciona no Safari do iPhone** — escolher a *pasta* do
 WhatsApp só dá no computador. No celular ela usa o `.txt` ou o 📸 da câmera. Dito a ela.
+
+
+## 📱 08/09 parte 4 — o celular de verdade: a lista virou cartão (commit `a2ac5d0`)
+
+A gaveta resolveu o menu, mas ela voltou: *"a tela pelo celular não está fácil de mexer, o
+espaço é curto para muita informação, não dá para entrar na aba do veículo"*. Estava certa —
+a tabela de **11 colunas** saía da tela e os botões de abrir o carro ficavam do lado de fora,
+e os **12 filtros** ocupavam **7 fileiras** antes de a lista começar.
+
+### A lista vira cartão (CSS, sem mexer em nenhuma tela)
+Em `<=820px`, `.section > table` vira bloco: `thead` some, cada `tr` é um cartão com borda
+dourada à esquerda, e cada `td` mostra **o nome da coluna à esquerda e o valor à direita**,
+via `content: attr(data-rot)`. A 1ª célula (placa) é o título do cartão; a última (os botões)
+ganha borda em cima, botões grandes e **texto** — `::after { content: ' Ver' }` e `' Abrir'` —
+com a lixeira estreita (58px) para não clicar sem querer.
+
+**Quem põe o `data-rot`:** `rotularTabelas()` lê o `<thead>` de cada tabela e escreve em cada
+célula. Para não ter de chamar isso dentro de `displayCarros`, `displayClientes`, `displayImoveis`…
+um **MutationObserver** em `#appContainer` (`childList: true, subtree: true`, debounce 60 ms)
+reaplica a cada redesenho. ⚠️ **Observar só `childList`** — se observasse `attributes`, o próprio
+`setAttribute` chamaria o observer de novo, em laço. Também marca `.cel-vazia` quando o valor é
+vazio, `-` ou `—`, e o CSS esconde essas no cartão (menos ruído).
+
+Isso serve para **todas** as listas do sistema de uma vez, e não muda nada no computador.
+
+### Filtros e abas: uma fileira que rola
+`.filtro-bar` e `.tabs` com `flex-wrap: nowrap; overflow-x: auto` (+ `flex: 0 0 auto` nos
+botões e `::-webkit-scrollbar{display:none}`). 7 fileiras viraram 1 de 42px; as 11 abas da
+ficha viraram 1 de 35px.
+
+### Conferido em 390×844 (Playwright)
+cartão 302px de largura e 389 de altura, **cabe na tela** · **sem rolagem lateral na página** ·
+filtro 42px e rola de lado · ficha do carro abre com 351px e as abas rolam · botão "Abrir"
+com 83×42px (alvo de toque bom).
+⚠️ **Para testar uma lista é preciso ATIVAR o módulo antes** — `.module` sem `.active` fica
+`display:none`, e tudo mede 0. Abrir a gaveta, clicar no link do menu e só então chamar
+`displayCarros()` (a função de exibir não precisa de `event`; `switchModule` precisa).

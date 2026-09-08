@@ -103,7 +103,25 @@ Ou seja: você já pode mandar foto do WhatsApp direto para o anúncio hoje.
 
 ---
 
-## 📱 O celular está resolvido
+## 📱 O celular ficou simples
+
+**Cada carro virou um cartão.** Em vez daquela tabela larga que saía da tela, agora cada carro
+é um quadro com a placa em cima e, embaixo, cada informação com o nome do lado:
+Carro, Ano, Cor, Cliente, Gastos, Recebidos, Saldo, Status. O que estiver em branco nem aparece,
+para não poluir.
+
+**E os botões ficaram grandes, com nome:** **👁️ Ver** e **✏️ Abrir**. Agora dá para entrar na
+ficha do veículo com o dedo, sem arrastar a tela de lado. A lixeira ficou estreita de propósito,
+para você não apagar sem querer.
+
+**Os filtros viraram uma fileira só.** Aqueles 12 botõezinhos (Comigo hoje, Alugados, No carnê,
+Garagem…) ocupavam sete fileiras antes de a lista começar. Agora é uma fileira que você
+**arrasta para o lado** com o dedo. As abas de dentro do carro (Ficha, Gastos, Fotos, Vistoria…)
+funcionam do mesmo jeito.
+
+Isso valeu para **todas as listas** do sistema — clientes, imóveis, carnês — não só a de carros.
+
+## 📱 O menu
 
 O menu tinha largura fixa e sobrava quase nada de tela. Agora, no celular, ele fica **escondido**
 e você abre no botão **☰** no canto de cima. Ele fecha sozinho quando você escolhe uma tela,
