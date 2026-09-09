@@ -795,7 +795,29 @@
                 <div class="form-group"><label>Título</label>
                     <select id="carro-titulo"><option value="">-</option><option value="CLEAN">CLEAN</option><option value="SALVAGED">SALVAGED</option></select></div>
                 <div class="form-group"><label>Licença (venc.)</label><input type="text" id="carro-licenca" placeholder="jul. 24"></div>
-                <div class="form-group"><label>Seguro</label><input type="text" id="carro-seguro" placeholder="ALLSTATE"></div>
+                <div class="form-group"><label>Seguradora</label><input type="text" id="carro-seguro" placeholder="ALLSTATE" list="lista-seguradoras" onchange="segSugereMensal()"></div>
+                <datalist id="lista-seguradoras"><option value="ALLSTATE"><option value="FARMERS"><option value="PROGRESSIVE"><option value="GEICO"><option value="STATE FARM"><option value="MERCURY"></datalist>
+            </div>
+
+            <div class="view-section" style="grid-column:1/-1;background:#f7fbff;border:1px solid #cfe2f3;border-radius:8px;padding:14px 16px;margin-top:6px">
+                <h4 style="margin:0 0 4px">🛡️ Apólice do seguro</h4>
+                <small style="color:#5a6b7a;display:block;margin-bottom:12px">A apólice vence a cada 6 meses. Preencha o início que eu calculo o vencimento — e o sistema te avisa antes de vencer.</small>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nº da apólice</label><input type="text" id="carro-seg-apolice" placeholder="opcional"></div>
+                    <div class="form-group"><label>Início da vigência</label><input type="date" id="carro-seg-inicio" onchange="segVencAuto()"></div>
+                    <div class="form-group"><label>Vence em</label><input type="date" id="carro-seg-venc"><small id="carro-seg-dica" style="color:#5a6b7a"></small></div>
+                    <div class="form-group"><label>Valor por mês $</label><input type="number" step="0.01" id="carro-seg-mensal" placeholder="130.00"><small style="color:#5a6b7a">média: C-MAX $130 · Outlander $180 · MKZ $150</small></div>
+                    <div class="form-group"><label>Situação</label>
+                        <select id="carro-seg-situacao" onchange="segVencAuto()">
+                            <option value="ativo">✅ Ativo</option>
+                            <option value="cancelado">🚫 Cancelado</option>
+                        </select></div>
+                    <div class="form-group"><label>Cancelado em</label><input type="date" id="carro-seg-cancelou"></div>
+                </div>
+                <button class="btn" type="button" onclick="preverSeguroMensal()" style="margin-top:6px">📋 Ver os lançamentos mensais que faltam</button>
+                <div id="carro-seg-previa"></div>
+            </div>
+            <div class="form-grid">
                 <div class="form-group"><label>Fastrack</label><input type="text" id="carro-fastrack" placeholder="SITE"></div>
                 <div class="form-group"><label>Status</label>
                     <select id="carro-status">
@@ -2692,6 +2714,7 @@
             set('carro-cor', c.cor); set('carro-cliente-atual', c.clienteAtual); set('carro-km', c.km);
             set('carro-vin', c.vin); set('carro-titular', c.titular); set('carro-titulo', c.titulo);
             set('carro-licenca', c.licenca); set('carro-seguro', c.seg); set('carro-fastrack', c.fastrack);
+            carregarSeguro(c);
             set('carro-status', c.status || 'ALUGADO'); set('carro-desc', c.desc);
             set('carro-tipo', c.tipo || 'CARRO');
             set('carro-placa-antiga', c.placaAntiga);
@@ -2764,6 +2787,7 @@
                 clienteAtual: g('carro-cliente-atual'), km: g('carro-km'), vin: g('carro-vin'),
                 titular: g('carro-titular'), titulo: g('carro-titulo'), licenca: g('carro-licenca'),
                 seg: g('carro-seguro'), fastrack: g('carro-fastrack'), status: g('carro-status'),
+                seguro: lerSeguroDoForm(),
                 tipo: g('carro-tipo') || 'CARRO',
                 placaAntiga: g('carro-placa-antiga'),
                 desc: g('carro-desc'),
@@ -2849,18 +2873,174 @@
         }).join('');
     }
 
+    /* ============ 🛡️ SEGURO DO CARRO ============ */
+    const SEG_MEDIA = [[/OUTLANDER/i, 180], [/MKZ/i, 150], [/C-?MAX/i, 130]];
+    const SEG_MES = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
+
+    function segEl(id) { return document.getElementById(id); }
+
+    function carregarSeguro(c) {
+        const s = c.seguro || {};
+        const p = (id, v) => { const e = segEl(id); if (e) e.value = v || ''; };
+        p('carro-seg-apolice', s.apolice); p('carro-seg-inicio', s.inicio);
+        p('carro-seg-venc', s.venc); p('carro-seg-mensal', s.mensal);
+        p('carro-seg-cancelou', s.cancelou);
+        const sit = segEl('carro-seg-situacao'); if (sit) sit.value = s.situacao || 'ativo';
+        const pv = segEl('carro-seg-previa'); if (pv) pv.innerHTML = '';
+        segVencAuto();
+    }
+
+    function lerSeguroDoForm() {
+        const v = id => (segEl(id) ? segEl(id).value.trim() : '');
+        const o = {
+            apolice: v('carro-seg-apolice'), inicio: v('carro-seg-inicio'),
+            venc: v('carro-seg-venc'), mensal: parseFloat(v('carro-seg-mensal')) || 0,
+            situacao: v('carro-seg-situacao') || 'ativo', cancelou: v('carro-seg-cancelou')
+        };
+        // se está tudo vazio, não cria o objeto à toa
+        if (!o.apolice && !o.inicio && !o.venc && !o.mensal && !o.cancelou) return undefined;
+        return o;
+    }
+
+    function segSugereMensal() {
+        const el = segEl('carro-seg-mensal'); if (!el || el.value) return;
+        const modelo = (segEl('carro-marca') || {}).value || '';
+        const m = SEG_MEDIA.find(([re]) => re.test(modelo));
+        if (m) el.placeholder = m[1] + '.00 (sua média para este modelo)';
+    }
+
+    // início + 6 meses = vencimento, se ela não tiver posto outro
+    function segVencAuto() {
+        const ini = segEl('carro-seg-inicio'), venc = segEl('carro-seg-venc'), dica = segEl('carro-seg-dica');
+        if (!ini || !venc) return;
+        if (ini.value && !venc.value) {
+            const d = new Date(ini.value + 'T12:00:00');
+            d.setMonth(d.getMonth() + 6);
+            venc.value = d.toISOString().slice(0, 10);
+        }
+        segSugereMensal();
+        if (!dica) return;
+        const st = segSituacao({seguro: lerSeguroDoForm()});
+        dica.textContent = st ? st.texto : 'a apólice vence a cada 6 meses';
+        dica.style.color = st ? st.cor : '#5a6b7a';
+    }
+
+    // devolve {nivel, texto, cor, dias} ou null
+    function segSituacao(c) {
+        const s = c.seguro; if (!s || !s.venc) return null;
+        if (s.situacao === 'cancelado') return {nivel: 'cancelado', texto: 'apólice cancelada', cor: '#6b7280', dias: null};
+        const hoje = new Date(); hoje.setHours(12, 0, 0, 0);
+        const v = new Date(s.venc + 'T12:00:00');
+        const dias = Math.round((v - hoje) / 86400000);
+        if (dias < 0)  return {nivel: 'vencido',  dias, cor: '#b42318', texto: 'venceu há ' + (-dias) + ' dia' + (-dias > 1 ? 's' : '')};
+        if (dias === 0) return {nivel: 'hoje',    dias, cor: '#b42318', texto: '⚠️ vence HOJE'};
+        if (dias <= 30) return {nivel: 'perto',   dias, cor: '#a15c00', texto: 'vence em ' + dias + ' dia' + (dias > 1 ? 's' : '')};
+        return {nivel: 'ok', dias, cor: '#166534', texto: 'vence em ' + dias + ' dias'};
+    }
+
+    // meses que a apólice cobre e que ainda não têm lançamento
+    function seguroMesesEmFalta(c) {
+        const s = c.seguro;
+        if (!s || !s.inicio || !(s.mensal > 0)) return [];
+        const ini = new Date(s.inicio + 'T12:00:00');
+        let fim = new Date(); fim.setHours(12, 0, 0, 0);
+        if (s.situacao === 'cancelado' && s.cancelou) fim = new Date(s.cancelou + 'T12:00:00');
+        const jaTem = {};
+        (c.gastosLista || []).forEach(g => { if (g.seguroMes) jaTem[g.seguroMes] = true; });
+        const faltam = [];
+        const d = new Date(ini.getFullYear(), ini.getMonth(), 1, 12);
+        while (d <= fim && faltam.length < 120) {
+            const chave = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            if (!jaTem[chave]) faltam.push({
+                chave, ano: String(d.getFullYear()),
+                dia: SEG_MES[d.getMonth()] + ' 1',
+                obs: 'SEGURO ' + ((c.seg || '').toUpperCase() || 'MENSAL'),
+                gasto: s.mensal
+            });
+            d.setMonth(d.getMonth() + 1);
+        }
+        return faltam;
+    }
+
+    // mostra a lista ANTES de gravar — ela confere e decide
+    function preverSeguroMensal() {
+        const alvo = segEl('carro-seg-previa'); if (!alvo) return;
+        const c = JSON.parse(JSON.stringify(carroEditando || {}));
+        c.seg = (segEl('carro-seguro') || {}).value || '';
+        c.marca = (segEl('carro-marca') || {}).value || '';
+        c.seguro = lerSeguroDoForm();
+        if (!c.seguro || !c.seguro.inicio) {
+            alvo.innerHTML = '<div class="aviso-pend">Preencha o <b>início da vigência</b> para eu calcular os meses.</div>'; return;
+        }
+        if (!(c.seguro.mensal > 0)) {
+            alvo.innerHTML = '<div class="aviso-pend">Preencha o <b>valor por mês</b>. Sua média: C-MAX $130 · Outlander $180 · MKZ $150.</div>'; return;
+        }
+        const faltam = seguroMesesEmFalta(c);
+        if (!faltam.length) {
+            alvo.innerHTML = '<div class="aviso-pend" style="background:#eaf5ee;border-color:#bfe0cc">✅ Nenhum mês em falta — o seguro deste carro já está todo lançado.</div>'; return;
+        }
+        const total = faltam.reduce((a, x) => a + x.gasto, 0);
+        alvo.innerHTML =
+            '<div class="aviso-pend" style="margin-top:12px"><b>' + faltam.length + ' mês(es) sem lançamento</b>, somando <b>$ ' +
+            total.toFixed(2) + '</b>. Confira antes de gravar — nada foi gravado ainda.' +
+            '<div style="max-height:190px;overflow:auto;margin:10px 0;background:#fff;border:1px solid #e5e3de;border-radius:6px">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+            faltam.map(x => '<tr><td style="padding:5px 10px;border-bottom:1px solid #f0efec">' + escapaHtml(x.dia + ' ' + x.ano) +
+                '</td><td style="padding:5px 10px;border-bottom:1px solid #f0efec">' + escapaHtml(x.obs) +
+                '</td><td style="padding:5px 10px;border-bottom:1px solid #f0efec;text-align:right">$ ' + x.gasto.toFixed(2) + '</td></tr>').join('') +
+            '</table></div>' +
+            '<button class="btn" type="button" onclick="gravarSeguroMensal()">💾 Gravar estes ' + faltam.length + ' lançamentos</button></div>';
+    }
+
+    function gravarSeguroMensal() {
+        if (!carroEditando) return;
+        const c = carroEditando;
+        c.seg = (segEl('carro-seguro') || {}).value || c.seg;
+        c.seguro = lerSeguroDoForm();
+        const faltam = seguroMesesEmFalta(c);
+        if (!faltam.length) return;
+        c.gastosLista = c.gastosLista || [];
+        faltam.forEach(x => c.gastosLista.push({
+            ano: x.ano, dia: x.dia, obs: x.obs, gasto: x.gasto, recebido: 0, seguroMes: x.chave
+        }));
+        const alvo = segEl('carro-seg-previa');
+        if (alvo) alvo.innerHTML = '<div class="aviso-pend" style="background:#eaf5ee;border-color:#bfe0cc">✅ ' +
+            faltam.length + ' lançamento(s) de seguro adicionados à lista de gastos. <b>Clique em Salvar Carro no fim da ficha para valer.</b></div>';
+        if (typeof displayGastos === 'function') try { displayGastos(); } catch (e) {}
+        if (typeof atualizarBalanco === 'function') try { atualizarBalanco(); } catch (e) {}
+    }
+
     function renderAvisosFrota() {
         const el = document.getElementById('avisos-frota');
         if (!el) return;
         const cs = database.carros || [];
         const semPlaca = cs.filter(c => !c.placa).length;
         const semNome = cs.filter(c => (c.carnes || []).some(k => !k.cliente || k.cliente.trim().toUpperCase() === 'NOME')).length;
+        // 🛡️ seguros vencidos / vencendo — ela já perdeu vencimento por falta de aviso
+        const seg = {vencido: [], hoje: [], perto: []};
+        cs.forEach(c => {
+            if (['VENDIDO', 'SAIU', 'PT'].includes(c.status)) return;
+            const st = segSituacao(c);
+            if (st && seg[st.nivel]) seg[st.nivel].push({c, st});
+        });
+        const linhaSeg = (lista, cor, fundo, titulo) => lista.length
+            ? `<div class="aviso-pend" style="background:${fundo};border-color:${cor}55;border-left:4px solid ${cor}">
+                 <b style="color:${cor}">${titulo} (${lista.length})</b><br>
+                 ${lista.map(x => `<span style="display:inline-block;margin:3px 10px 0 0">
+                   <b>${escapaHtml(x.c.placa || '(sem placa)')}</b> ${escapaHtml(x.c.marca || '')}
+                   <span style="color:${cor}">— ${escapaHtml(x.st.texto)}</span></span>`).join('')}
+               </div>` : '';
+        const avisosSeguro =
+              linhaSeg(seg.hoje,    '#b42318', '#fdeaea', '🛡️ Seguro vence HOJE')
+            + linhaSeg(seg.vencido, '#b42318', '#fdeaea', '🛡️ Seguro VENCIDO')
+            + linhaSeg(seg.perto,   '#a15c00', '#fff8e6', '🛡️ Seguro vencendo em até 30 dias');
+
         const partes = [];
         if (semPlaca) partes.push(`<b>${semPlaca}</b> carro${semPlaca > 1 ? 's' : ''} sem placa`);
         if (semNome) partes.push(`<b>${semNome}</b> carnê${semNome > 1 ? 's' : ''} sem o nome do cliente`);
-        el.innerHTML = partes.length
+        el.innerHTML = avisosSeguro + (partes.length
             ? `<div class="aviso-pend">📝 Falta preencher: ${partes.join(' · ')}. Abra o carro e complete quando puder.</div>`
-            : '';
+            : '');
     }
 
     function displayCarros() {
