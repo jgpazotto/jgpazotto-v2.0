@@ -782,7 +782,7 @@
                     </select></div>
                 <div class="form-group"><label>Ano</label><input type="text" id="carro-ano" placeholder="2013"></div>
                 <div class="form-group"><label>Placa *</label><input type="text" id="carro-placa" placeholder="9DHW447"></div>
-                <div class="form-group"><label>Placa antiga</label><input type="text" id="carro-placa-antiga" placeholder="se mudou de estado"></div>
+                <div class="form-group"><label>Placas anteriores</label><input type="text" id="carro-placa-antiga" placeholder="9ETZ038, 8YES705"><small style="color:#5a6b7a">separe por vírgula. Placa troca por roubo, por perda total que vocês ficaram, ou por mudança de estado — o VIN é que diz que é o mesmo carro.</small></div>
                 <div class="form-group"><label>Cor</label><input type="text" id="carro-cor" placeholder="AZUL"></div>
                 <div class="form-group"><label>Cliente atual</label><input type="text" id="carro-cliente-atual" placeholder="Nome de quem está com o carro"></div>
                 <div class="form-group"><label>Valor de compra $</label><input type="number" step="0.01" id="carro-valorcompra" placeholder="4133.00" onchange="atualizarBalanco()"></div>
@@ -947,6 +947,8 @@
                 ainda está com ele.
             </p>
             <button class="btn btn-small" onclick="addLocacao()">➕ Adicionar período</button>
+            <button class="btn btn-small" onclick="preverLocacoesFichas()">🔎 Montar a partir das fichas de pagamento</button>
+            <div id="carro-loc-previa"></div>
             <table class="mini-table">
                 <thead><tr><th>Quem ficou</th><th style="width:130px">Telefone</th>
                   <th style="width:135px">De</th><th style="width:135px">Até</th>
@@ -1864,8 +1866,10 @@
             meus[chave(c)] = c;
             const vin = String(c.vin || '').trim().toUpperCase();
             if (vin.length >= 10) meus['VIN:' + vin] = c;
-            const velha = String(c.placaAntiga || '').trim().toUpperCase();
-            if (velha) meus[velha] = c;
+            // pode ter mais de uma placa antiga (roubo, PT, mudanca de estado)
+            String(c.placaAntiga || '').split(/[,;/]+/).forEach(v => {
+                const velha = v.trim().toUpperCase(); if (velha) meus[velha] = c;
+            });
         });
         const acharMeu = n => meus[chave(n)]
             || (String(n.vin || '').trim().length >= 10 ? meus['VIN:' + String(n.vin).trim().toUpperCase()] : null);
@@ -3369,6 +3373,182 @@
     function addLocacao() { cLocacoes.push({cliente: '', tel: '', de: '', ate: '', obs: ''}); renderLocacoes(); }
 
     // Quem estava com o carro nesta data? (data em AAAA-MM-DD)
+    /* ====== 🔑 MONTAR OS PERIODOS A PARTIR DAS FICHAS DE PAGAMENTO ======
+       As fichas da planilha de out/2023 ja estao no sistema (c.pagamentos), com o nome do
+       cliente, os meses pagos e uma observacao que muitas vezes traz a data de devolucao.
+       Isso da o periodo sem inventar nada. Onde o ANO nao esta escrito, eu deixo a data em
+       branco e escrevo o que achei — quem preenche e ela. */
+    const LOC_MES = {janeiro:0, fevereiro:1, 'março':2, marco:2, abril:3, maio:4, junho:5,
+                     julho:6, agosto:7, setembro:8, outubro:9, novembro:10, dezembro:11};
+    const LOC_FIM = /(devolv|voltou|saiu|entregou|troca|trocou)/i;
+
+    function locVin(v) {
+        const x = String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+                    .replace(/O/g, '0').replace(/I/g, '1').replace(/Q/g, '0');
+        return x.length === 17 ? x : '';
+    }
+
+    // datas escritas num texto -> [{iso, ano, temAno}]
+    function locDatas(txt) {
+        const out = [];
+        String(txt || '').replace(/\b(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?\b/g, (m, d, mo, a) => {
+            if (+d > 31 || +mo > 12) return m;
+            if (a) {
+                const ano = a.length === 2 ? 2000 + (+a) : +a;
+                out.push({iso: ano + '-' + String(+mo).padStart(2, '0') + '-' + String(+d).padStart(2, '0'), ano, temAno: true});
+            } else out.push({dia: +d, mes: +mo - 1, temAno: false});
+            return m;
+        });
+        return out;
+    }
+
+    function ultimoDia(ano, mes) { return new Date(ano, mes + 1, 0).getDate(); }
+    function locIso(ano, mes, dia) {
+        return ano + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+    }
+
+    // uma ficha de pagamento -> no maximo um periodo
+    function periodoDaFicha(f) {
+        const cliente = String(f.cliente || '').replace(/^nome\s+/i, '').trim();
+        if (!cliente || /^nome$/i.test(cliente)) return null;
+        const pagos = (f.meses || []).filter(m => {
+            const t = (m.total != null) ? m.total : (m.semanas || []).reduce((a, b) => a + (+b || 0), 0);
+            return Math.abs(+t || 0) > 0 && LOC_MES[String(m.mes || '').toLowerCase()] != null;
+        });
+        const idx = pagos.map(m => LOC_MES[String(m.mes).toLowerCase()]);
+
+        const datas = locDatas(f.obs);
+        const comAno = datas.filter(d => d.temAno);
+        const fimTxt = LOC_FIM.test(String(f.obs || '')) && comAno.length ? comAno[comAno.length - 1] : null;
+
+        const evid = [];
+        if (idx.length) evid.push('pagou ' + pagos[0].mes + (pagos.length > 1 ? ' a ' + pagos[pagos.length - 1].mes : ''));
+        if (fimTxt) evid.push('a observação diz saída em ' + fimTxt.iso.split('-').reverse().join('/'));
+
+        // sem nenhum ano escrito -> nao inventa data
+        if (!comAno.length) {
+            if (!idx.length) return null;
+            return {cliente, de: '', ate: '', incerto: true,
+                    obs: (evid.join(' · ') || '') + ' — o ano não está escrito na ficha, confira'};
+        }
+
+        // ancoro o ULTIMO mes pago no ano conhecido e ando para tras
+        const anoFim = (fimTxt || comAno[comAno.length - 1]).ano;
+        let de = '', ate = '';
+        if (idx.length) {
+            const anos = new Array(idx.length);
+            anos[idx.length - 1] = anoFim;
+            for (let i = idx.length - 2; i >= 0; i--)
+                anos[i] = (idx[i] <= idx[i + 1]) ? anos[i + 1] : anos[i + 1] - 1;
+            de = locIso(anos[0], idx[0], 1);
+            const fimDosMeses = locIso(anos[idx.length - 1], idx[idx.length - 1], ultimoDia(anos[idx.length - 1], idx[idx.length - 1]));
+            ate = fimTxt ? fimTxt.iso : fimDosMeses;
+            // a observacao diz que saiu ANTES do ultimo mes pago: pode ser troca de carro, nao fim
+            if (fimTxt && fimTxt.iso < fimDosMeses) {
+                evid.push('⚠️ pagou até ' + fimDosMeses.split('-').reverse().join('/') +
+                          ', mas a observação diz saída antes — pode ter trocado de carro, confira');
+            }
+            if (fimTxt && fimTxt.iso < de) ate = locIso(anos[idx.length - 1], idx[idx.length - 1], ultimoDia(anos[idx.length - 1], idx[idx.length - 1]));
+        } else if (fimTxt) {
+            ate = fimTxt.iso;
+            evid.push('só achei a saída — confira a data de início');
+        }
+        if (!de && !ate) return null;
+        return {cliente, de, ate, incerto: !de, obs: evid.join(' · ')};
+    }
+
+    // A mesma pessoa aparece em varias fichas do mesmo carro (as abas -1, -2 da planilha).
+    // Junto o que se encosta: mesmo nome e periodos que se sobrepoem ou colam (folga de 31 dias)
+    // viram UM periodo. Duas estadas separadas de verdade continuam separadas.
+    function juntarPeriodos(lista) {
+        const dias = i => i ? Math.round(new Date(i + 'T12:00:00') / 86400000) : null;
+        const porNome = {};
+        lista.forEach(l => {
+            const k = nomeChave(l.cliente) || l.cliente;
+            (porNome[k] = porNome[k] || []).push(l);
+        });
+        const saida = [];
+        Object.values(porNome).forEach(g => {
+            const semData = g.filter(l => !l.de && !l.ate);
+            const comData = g.filter(l => l.de || l.ate).sort((a, b) => (a.de || a.ate).localeCompare(b.de || b.ate));
+            let atual = null;
+            comData.forEach(l => {
+                if (!atual) { atual = Object.assign({}, l); return; }
+                const fimA = dias(atual.ate || atual.de), iniL = dias(l.de || l.ate);
+                if (fimA != null && iniL != null && iniL - fimA <= 31) {
+                    // encosta: junta
+                    if (!atual.de || (l.de && l.de < atual.de)) atual.de = l.de || atual.de;
+                    if (l.ate && (!atual.ate || l.ate > atual.ate)) atual.ate = l.ate;
+                    atual.juntou = (atual.juntou || 1) + 1;
+                } else { saida.push(atual); atual = Object.assign({}, l); }
+            });
+            if (atual) saida.push(atual);
+            // um "sem ano" so entra se a pessoa nao ficou com data nenhuma neste carro
+            if (!comData.length) saida.push(semData[0]);
+        });
+        // periodo comprido demais provavelmente juntou coisa errada: aviso, nao escondo
+        saida.forEach(l => {
+            if (l.juntou > 1) l.obs = (l.obs || '') + ' · juntei ' + l.juntou + ' fichas desta pessoa';
+            if (l.de && l.ate) {
+                const meses = (dias(l.ate) - dias(l.de)) / 30.4;
+                if (meses > 18) { l.incerto = true; l.obs = (l.obs || '') + ' · ⚠️ ' + Math.round(meses) + ' meses, confira'; }
+                if (dias(l.ate) < dias(l.de)) { l.incerto = true; l.obs = (l.obs || '') + ' · ⚠️ o fim vem antes do começo, confira'; }
+            }
+        });
+        return saida.sort((a, b) => (a.de || 'z').localeCompare(b.de || 'z'));
+    }
+
+    function locacoesDasFichas(c) {
+        return juntarPeriodos(((c && c.pagamentos) || []).map(periodoDaFicha).filter(Boolean));
+    }
+
+    function preverLocacoesFichas() {
+        const alvo = document.getElementById('carro-loc-previa'); if (!alvo) return;
+        const c = carroEditando || {};
+        const achados = locacoesDasFichas(c);
+        if (!achados.length) {
+            alvo.innerHTML = '<div class="aviso-pend">Este carro não tem ficha de pagamento com nome e mês para eu ler. ' +
+                'Dá para montar pelo nome do grupo do WhatsApp, na tela 📲 Importar.</div>';
+            return;
+        }
+        const novos = achados.filter(l => !cLocacoes.some(x => mesmoNome(x.cliente, l.cliente) && (x.de || '') === (l.de || '')));
+        if (!novos.length) {
+            alvo.innerHTML = '<div class="aviso-pend" style="background:#eaf5ee;border-color:#bfe0cc">✅ Os ' +
+                achados.length + ' período(s) que eu acho nas fichas já estão na lista abaixo.</div>';
+            return;
+        }
+        const dm = i => i ? i.split('-').reverse().join('/') : '<i style="color:#b42318">falta</i>';
+        alvo.innerHTML = '<div class="aviso-pend" style="margin:10px 0"><b>' + novos.length +
+            ' período(s) achado(s) nas fichas de pagamento.</b> Nada foi gravado ainda — confira e depois use o botão.' +
+            '<div style="max-height:210px;overflow:auto;margin:10px 0;background:#fff;border:1px solid #e5e3de;border-radius:6px">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+            '<tr style="background:#faf9f7"><th style="text-align:left;padding:5px 10px">Quem</th>' +
+            '<th style="text-align:left;padding:5px 10px">De</th><th style="text-align:left;padding:5px 10px">Até</th>' +
+            '<th style="text-align:left;padding:5px 10px">Como eu achei</th></tr>' +
+            novos.map(l => '<tr><td style="padding:5px 10px;border-top:1px solid #f0efec"><b>' + escapaHtml(l.cliente) +
+                '</b></td><td style="padding:5px 10px;border-top:1px solid #f0efec">' + dm(l.de) +
+                '</td><td style="padding:5px 10px;border-top:1px solid #f0efec">' + dm(l.ate) +
+                '</td><td style="padding:5px 10px;border-top:1px solid #f0efec;color:#5a6b7a">' + escapaHtml(l.obs) + '</td></tr>').join('') +
+            '</table></div>' +
+            (novos.some(l => l.incerto) ? '<div style="color:#a15c00;margin-bottom:8px">⚠️ Onde está escrito <b>falta</b>, o ano não aparece na ficha. Eu não chuto — preencha na tabela depois de trazer.</div>' : '') +
+            '<button class="btn" type="button" onclick="usarLocacoesFichas()">⬇️ Trazer estes ' + novos.length + ' para a tabela</button>' +
+            ' <small style="color:#5a6b7a">depois confira e clique em Salvar Carro</small></div>';
+    }
+
+    function usarLocacoesFichas() {
+        const c = carroEditando || {};
+        let n = 0;
+        locacoesDasFichas(c).forEach(l => {
+            if (cLocacoes.some(x => mesmoNome(x.cliente, l.cliente) && (x.de || '') === (l.de || ''))) return;
+            cLocacoes.push({cliente: l.cliente, tel: '', de: l.de || '', ate: l.ate || '', obs: l.obs || ''});
+            n++;
+        });
+        renderLocacoes();
+        const alvo = document.getElementById('carro-loc-previa');
+        if (alvo) alvo.innerHTML = '<div class="aviso-pend" style="background:#eaf5ee;border-color:#bfe0cc">✅ ' + n +
+            ' período(s) trazido(s) para a tabela. <b>Confira as datas e clique em Salvar Carro no fim da ficha.</b></div>';
+    }
+
     function clienteNaData(carro, iso) {
         if (!carro || !iso) return null;
         const dentro = (carro.locacoes || []).find(l =>
