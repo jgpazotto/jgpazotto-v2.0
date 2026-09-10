@@ -950,7 +950,8 @@
             <button class="btn btn-small" onclick="preverLocacoesFichas()">🔎 Montar a partir das fichas de pagamento</button>
             <div id="carro-loc-previa"></div>
             <table class="mini-table">
-                <thead><tr><th>Quem ficou</th><th style="width:130px">Telefone</th>
+                <thead><tr><th>Quem ficou</th><th style="width:120px">Como foi</th>
+                  <th style="width:115px">Telefone</th>
                   <th style="width:135px">De</th><th style="width:135px">Até</th>
                   <th>Observação</th><th style="width:45px"></th></tr></thead>
                 <tbody id="carro-locacoes-body"></tbody>
@@ -2046,10 +2047,16 @@
             // sobreposição: não pode estar com dois carros no mesmo dia
             if (fimA != null && iniB != null && iniB < fimA) {
                 const q = fimA - iniB;
-                itens[i].alerta = mesmoCarro
-                    ? '⚠️ estes dois períodos do mesmo carro se sobrepõem em ' + q + ' dia(s) — confira as datas'
-                    : '⚠️ ficou com dois carros ao mesmo tempo por ' + q + ' dia(s) — pode ser carro reserva ' +
-                      'enquanto o outro estava na oficina, ou uma data errada';
+                const reserva = a.l.tipo === 'emprestimo' || b.l.tipo === 'emprestimo';
+                if (reserva && !mesmoCarro) {
+                    // empréstimo em cima de aluguel é o carro reserva: esperado, não é erro
+                    itens[i].nota = '🔁 carro reserva por ' + q + ' dia(s), enquanto ficava com o outro';
+                } else {
+                    itens[i].alerta = mesmoCarro
+                        ? '⚠️ estes dois períodos do mesmo carro se sobrepõem em ' + q + ' dia(s) — confira as datas'
+                        : '⚠️ ficou com dois carros ao mesmo tempo por ' + q + ' dia(s) — se foi carro reserva ' +
+                          'enquanto o outro estava na oficina, marque um deles como <b>Empréstimo</b>; senão, uma data está errada';
+                }
                 continue;
             }
             if (fimA == null || iniB == null) continue;
@@ -2095,6 +2102,8 @@
                     flex:0 0 9px;margin-top:5px"></span>
               <div style="flex:1;font-size:13px">
                 <b>${escapaHtml(x.p.car || 'carro sem placa')}</b>
+                ${(x.p.l.tipo && x.p.l.tipo !== 'aluguel') ? `<span style="font-size:11px;background:#eef2f6;
+                   border-radius:10px;padding:1px 7px;color:#41525f">${escapaHtml(locTipoNome(x.p.l.tipo))}</span>` : ''}
                 <span style="color:#5a6b7a"> · ${escapaHtml(dataBonitaIso(x.p.l.de))}
                 → ${x.p.l.ate ? escapaHtml(dataBonitaIso(x.p.l.ate)) : '<b style="color:#2f8f52">hoje</b>'}
                 · ${escapaHtml(tempo(x.p.l.de, x.p.l.ate))}</span>
@@ -3465,6 +3474,16 @@
 
     // ===== QUEM FICOU COM O CARRO (períodos de locação) =====
     // É daqui que o sistema tira DE QUEM cobrar uma multa: pela data.
+    /* Ela explicou: "muitas vezes a gente só emprestava o carro para um período, às vezes para
+       fazer manutenção de outro carro" — o carro reserva. Empréstimo NÃO é aluguel: pode andar
+       junto com outro período da mesma pessoa, e por isso não é choque de datas. */
+    const LOC_TIPOS = [
+        {k: 'aluguel',     n: '📅 Aluguel'},
+        {k: 'emprestimo',  n: '🔁 Empréstimo (reserva)'},
+        {k: 'carne',       n: '💵 Venda no carnê'}
+    ];
+    const locTipoNome = k => (LOC_TIPOS.find(t => t.k === (k || 'aluguel')) || LOC_TIPOS[0]).n;
+
     let cLocacoes = [];
 
     function renderLocacoes() {
@@ -3473,18 +3492,21 @@
         tb.innerHTML = cLocacoes.map((l, i) => `<tr>
             <td><input value="${escapaHtml(l.cliente || '')}" list="lista-de-clientes"
                  onchange="cLocacoes[${i}].cliente=this.value"></td>
+            <td><select onchange="cLocacoes[${i}].tipo=this.value;renderLocacoes()">
+                 ${LOC_TIPOS.map(t => `<option value="${t.k}" ${(l.tipo || 'aluguel') === t.k ? 'selected' : ''}>${t.n}</option>`).join('')}
+               </select></td>
             <td><input value="${escapaHtml(l.tel || '')}" onchange="cLocacoes[${i}].tel=this.value"></td>
             <td><input type="date" value="${l.de || ''}" onchange="cLocacoes[${i}].de=this.value;renderLocacoes()"></td>
             <td><input type="date" value="${l.ate || ''}" onchange="cLocacoes[${i}].ate=this.value;renderLocacoes()"></td>
             <td><input value="${escapaHtml(l.obs || '')}" onchange="cLocacoes[${i}].obs=this.value"></td>
             <td><button class="del" onclick="cLocacoes.splice(${i},1);renderLocacoes()">✕</button></td>
           </tr>`).join('') ||
-          '<tr><td colspan="6" style="padding:12px;color:#7b8794">Nenhum período cadastrado ainda.</td></tr>';
+          '<tr><td colspan="7" style="padding:12px;color:#7b8794">Nenhum período cadastrado ainda.</td></tr>';
         let dl = document.getElementById('lista-de-clientes');
         if (!dl) { dl = document.createElement('datalist'); dl.id = 'lista-de-clientes'; document.body.appendChild(dl); }
         dl.innerHTML = (database.clientes || []).map(c => `<option value="${escapaHtml(c.nome || '')}">`).join('');
     }
-    function addLocacao() { cLocacoes.push({cliente: '', tel: '', de: '', ate: '', obs: ''}); renderLocacoes(); }
+    function addLocacao() { cLocacoes.push({cliente: '', tipo: 'aluguel', tel: '', de: '', ate: '', obs: ''}); renderLocacoes(); }
 
     // Quem estava com o carro nesta data? (data em AAAA-MM-DD)
     /* ====== 🔑 MONTAR OS PERIODOS A PARTIR DAS FICHAS DE PAGAMENTO ======
@@ -3495,6 +3517,8 @@
     const LOC_MES = {janeiro:0, fevereiro:1, 'março':2, marco:2, abril:3, maio:4, junho:5,
                      julho:6, agosto:7, setembro:8, outubro:9, novembro:10, dezembro:11};
     const LOC_FIM = /(devolv|voltou|saiu|entregou|troca|trocou)/i;
+    // quando a observação diz o dia que a pessoa PEGOU o carro, isso vale mais que o 1º do mês
+    const LOC_INI = /(pegou|peguei|pegado|entregue|entreguei|retirou|levou|come[çc]ou|iniciou)\s*(?:o\s*carro\s*)?(?:em\s*|dia\s*)?(\d{1,2}[\/.]\d{1,2}(?:[\/.]\d{2,4})?)/i;
 
     function locVin(v) {
         const x = String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
@@ -3534,6 +3558,9 @@
         const datas = locDatas(f.obs);
         const comAno = datas.filter(d => d.temAno);
         const fimTxt = LOC_FIM.test(String(f.obs || '')) && comAno.length ? comAno[comAno.length - 1] : null;
+        // data de retirada escrita na observação
+        const mIni = LOC_INI.exec(String(f.obs || ''));
+        const iniTxt = mIni ? (locDatas(mIni[2]).find(d => d.temAno) || null) : null;
 
         const evid = [];
         if (idx.length) evid.push('pagou ' + pagos[0].mes + (pagos.length > 1 ? ' a ' + pagos[pagos.length - 1].mes : ''));
@@ -3557,18 +3584,31 @@
             de = locIso(anos[0], idx[0], 1);
             const fimDosMeses = locIso(anos[idx.length - 1], idx[idx.length - 1], ultimoDia(anos[idx.length - 1], idx[idx.length - 1]));
             ate = fimTxt ? fimTxt.iso : fimDosMeses;
-            // a observacao diz que saiu ANTES do ultimo mes pago: pode ser troca de carro, nao fim
-            if (fimTxt && fimTxt.iso < fimDosMeses) {
+            // se a observacao diz o dia da retirada, ele manda mais que o 1o do mes
+            if (iniTxt && iniTxt.iso >= de && (!ate || iniTxt.iso <= ate)) {
+                de = iniTxt.iso;
+                evid.push('a observação diz retirada em ' + iniTxt.iso.split('-').reverse().join('/'));
+            }
+            // saiu MUITO antes do ultimo mes pago: pode ser troca de carro, nao fim
+            if (fimTxt && histDias(fimDosMeses) - histDias(fimTxt.iso) > 31) {
                 evid.push('⚠️ pagou até ' + fimDosMeses.split('-').reverse().join('/') +
                           ', mas a observação diz saída antes — pode ter trocado de carro, confira');
             }
             if (fimTxt && fimTxt.iso < de) ate = locIso(anos[idx.length - 1], idx[idx.length - 1], ultimoDia(anos[idx.length - 1], idx[idx.length - 1]));
-        } else if (fimTxt) {
-            ate = fimTxt.iso;
-            evid.push('só achei a saída — confira a data de início');
+        } else if (fimTxt || iniTxt) {
+            if (iniTxt) de = iniTxt.iso;
+            if (fimTxt) ate = fimTxt.iso;
+            if (!de) evid.push('só achei a saída — confira a data de início');
+            if (!ate) evid.push('só achei a retirada — confira a data de devolução');
         }
         if (!de && !ate) return null;
-        return {cliente, de, ate, incerto: !de, obs: evid.join(' · ')};
+        // periodo curto tem cara de carro reserva — sugiro, ela confirma no seletor
+        let tipo = 'aluguel';
+        if (de && ate) {
+            const q = histDias(ate) - histDias(de);
+            if (q >= 0 && q <= 7) { tipo = 'emprestimo'; evid.push('só ' + q + ' dia(s) — marquei como empréstimo, confira'); }
+        }
+        return {cliente, de, ate, tipo, incerto: !de, obs: evid.join(' · ')};
     }
 
     // A mesma pessoa aparece em varias fichas do mesmo carro (as abas -1, -2 da planilha).
@@ -3628,6 +3668,7 @@
             if (o === c || (c && o.id === c.id)) return;
             (o.locacoes || []).forEach(x => {
                 if (!mesmoNome(x.cliente, l.cliente) || !x.de) return;
+                if (x.tipo === 'emprestimo' || l.tipo === 'emprestimo') return; // reserva pode andar junto
                 const iniX = histDias(x.de), fimX = x.ate ? histDias(x.ate) : iniX;
                 if (iniL <= fimX && iniX <= fimL) {
                     const q = Math.min(fimL, fimX) - Math.max(iniL, iniX) + 1;
@@ -3685,7 +3726,8 @@
         let n = 0;
         locacoesDasFichas(c).forEach(l => {
             if (cLocacoes.some(x => mesmoNome(x.cliente, l.cliente) && (x.de || '') === (l.de || ''))) return;
-            cLocacoes.push({cliente: l.cliente, tel: '', de: l.de || '', ate: l.ate || '', obs: l.obs || ''});
+            cLocacoes.push({cliente: l.cliente, tipo: l.tipo || 'aluguel', tel: '',
+                            de: l.de || '', ate: l.ate || '', obs: l.obs || ''});
             n++;
         });
         renderLocacoes();
