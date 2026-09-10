@@ -2023,6 +2023,111 @@
         }
     }
 
+    /* ===== A HISTÓRIA DO CLIENTE ATRAVESSANDO OS CARROS =====
+       Ela explicou: cliente de anos troca de carro — por batida, por melhorar de veículo, ou
+       volta para o carro anterior (caso Rosalinda). Então a mesma pessoa em vários carros NÃO é
+       erro: é a vida dela. O que É erro é a pessoa aparecer com dois carros ao mesmo tempo.
+       Aqui eu ordeno os períodos e digo o que aconteceu entre um e outro. Eu aviso, nunca corrijo. */
+    const HIST_DIA = 86400000;
+    function histDias(iso) { return iso ? Math.round(Date.parse(iso + 'T12:00:00') / HIST_DIA) : null; }
+
+    function historiaDoCliente(periodos) {
+        const comData = periodos.filter(p => p.l.de).slice()
+            .sort((a, b) => a.l.de.localeCompare(b.l.de));
+        const semData = periodos.filter(p => !p.l.de);
+        const itens = comData.map(p => ({p, nota: null, alerta: null}));
+
+        for (let i = 1; i < itens.length; i++) {
+            const a = itens[i - 1].p, b = itens[i].p;
+            const mesmoCarro = (a.car || '') === (b.car || '');
+            const fimA = histDias(a.l.ate), iniB = histDias(b.l.de);
+            const jaTeve = comData.slice(0, i - 1).some(x => (x.car || '') === (b.car || ''));
+
+            // sobreposição: não pode estar com dois carros no mesmo dia
+            if (fimA != null && iniB != null && iniB < fimA) {
+                const q = fimA - iniB;
+                itens[i].alerta = mesmoCarro
+                    ? '⚠️ estes dois períodos do mesmo carro se sobrepõem em ' + q + ' dia(s) — confira as datas'
+                    : '⚠️ ficou com dois carros ao mesmo tempo por ' + q + ' dia(s) — pode ser carro reserva ' +
+                      'enquanto o outro estava na oficina, ou uma data errada';
+                continue;
+            }
+            if (fimA == null || iniB == null) continue;
+            const folga = iniB - fimA;
+
+            if (mesmoCarro) {
+                itens[i].nota = folga <= 31
+                    ? 'continuou no mesmo carro'
+                    : '↩️ voltou para este mesmo carro depois de ' + folga + ' dia(s)';
+            } else if (jaTeve) {
+                itens[i].nota = '↩️ voltou para um carro que já tinha tido' +
+                    (folga <= 7 ? ' — troca direta' : ' — ' + folga + ' dia(s) depois');
+            } else if (folga <= 7) {
+                const bat = /batid|sinistr|perda total|guincho/i.test((a.l.obs || '') + ' ' + (b.l.obs || ''));
+                itens[i].nota = '🔄 trocou de carro' + (bat ? ' (a observação fala de batida/guincho)' : '') +
+                    (folga > 0 ? ' — ' + folga + ' dia(s) de intervalo' : ' — no mesmo dia');
+            } else if (folga <= 31) {
+                itens[i].nota = '🔄 trocou de carro — ' + folga + ' dia(s) de intervalo';
+            } else {
+                itens[i].nota = '⏸️ ' + folga + ' dia(s) sem carro nenhum (ou falta um período aqui)';
+            }
+        }
+        return {itens, semData, alertas: itens.filter(x => x.alerta).length};
+    }
+
+    function histBloco(nome, periodos) {
+        if (!periodos.length)
+            return `<p style="font-size:13px;color:#7b8794">Nenhum período cadastrado. Abra o carro na aba
+               <b>🔑 Quem ficou com o carro</b> e preencha — é isso que faz o sistema saber de quem é cada multa.</p>`;
+        const h = historiaDoCliente(periodos);
+        const tempo = (de, ate) => {
+            const f = ate ? histDias(ate) : Math.round(Date.now() / HIST_DIA);
+            const q = f - histDias(de);
+            return (q >= 0 ? q : 0) + ' dia(s)' + (ate ? '' : ' — ainda está');
+        };
+        const linha = x => `
+            ${x.nota ? `<div style="font-size:12px;color:#5a6b7a;margin:2px 0 2px 9px;padding-left:13px;
+                 border-left:2px dashed #cfd6dd">${escapaHtml(x.nota)}</div>` : ''}
+            ${x.alerta ? `<div style="font-size:12px;color:#a15c00;background:#fff8e6;border:1px solid #f0dfae;
+                 border-radius:5px;padding:5px 9px;margin:5px 0 5px 9px">${escapaHtml(x.alerta)}</div>` : ''}
+            <div style="display:flex;gap:9px;align-items:baseline;padding:5px 0;border-top:1px solid #f0efec">
+              <span style="width:9px;height:9px;border-radius:50%;background:${x.p.l.ate ? '#9aa5b1' : '#2f8f52'};
+                    flex:0 0 9px;margin-top:5px"></span>
+              <div style="flex:1;font-size:13px">
+                <b>${escapaHtml(x.p.car || 'carro sem placa')}</b>
+                <span style="color:#5a6b7a"> · ${escapaHtml(dataBonitaIso(x.p.l.de))}
+                → ${x.p.l.ate ? escapaHtml(dataBonitaIso(x.p.l.ate)) : '<b style="color:#2f8f52">hoje</b>'}
+                · ${escapaHtml(tempo(x.p.l.de, x.p.l.ate))}</span>
+                ${x.p.l.obs ? `<div style="color:#7b8794;font-size:12px">${escapaHtml(x.p.l.obs)}</div>` : ''}
+              </div>
+            </div>`;
+        return (h.alertas ? `<div class="aviso-pend" style="margin-bottom:10px">⚠️ <b>${h.alertas} coisa(s) para conferir</b>
+                  nesta linha do tempo — estão marcadas em amarelo abaixo. Eu só aviso, não mudo nada.</div>` : '') +
+            h.itens.map(linha).join('') +
+            (h.semData.length ? `<div style="margin-top:11px;background:#fdeaea;border:1px solid #f2c9c4;
+                 border-radius:6px;padding:9px 12px;font-size:13px">
+                 <b style="color:#b42318">${h.semData.length} período(s) sem data</b> — não entram na linha do tempo
+                 nem sabem de quem cobrar uma multa. Abra o carro e preencha:
+                 ${h.semData.map(p => escapaHtml(p.car || '?') + (p.l.obs ? ' <span style="color:#7b8794">(' + escapaHtml(p.l.obs) + ')</span>' : '')).join(' · ')}
+               </div>` : '');
+    }
+
+    // quantos clientes têm período sobreposto em dois carros (para o painel da frota)
+    function clientesComConflito() {
+        const porNome = {};
+        (database.carros || []).forEach(c => {
+            const nomeCarro = ((c.marca || '') + ' ' + (c.placa ? '· ' + c.placa : '')).trim();
+            (c.locacoes || []).forEach(l => {
+                const k = nomeChave(l.cliente); if (!k) return;
+                (porNome[k] = porNome[k] || []).push({car: nomeCarro, l});
+            });
+        });
+        return Object.entries(porNome)
+            .map(([k, ps]) => ({nome: ps[0].l.cliente, alertas: historiaDoCliente(ps).alertas,
+                                semData: ps.filter(p => !p.l.de).length}))
+            .filter(x => x.alertas || x.semData);
+    }
+
     // ===== A CONTA DA PESSOA =====
     // Junta, de TODOS os carros: os períodos em que ela ficou com o carro,
     // as multas/danos que são dela, o que falta no carnê, e se ela respondeu
@@ -2054,15 +2159,7 @@
                  ${b.seguro ? ' · seguro pagou <b>' + fmt(b.seguro) + '</b>' : ''}</div>`).join('')}
             </div>` : '') +
 
-        bloco('🔑 Quando ficou com cada carro', periodos.length
-            ? `<table class="mini-table"><thead><tr><th>Carro</th><th>De</th><th>Até</th><th>Tempo</th><th>Obs</th></tr></thead>
-               <tbody>${periodos.map(p => `<tr><td>${escapaHtml(p.car)}</td>
-                 <td>${p.l.de ? escapaHtml(dataBonitaIso(p.l.de)) : '—'}</td>
-                 <td>${p.l.ate ? escapaHtml(dataBonitaIso(p.l.ate)) : '<b>ainda está</b>'}</td>
-                 <td>${escapaHtml(dias(p.l.de, p.l.ate))}</td>
-                 <td>${escapaHtml(p.l.obs || '')}</td></tr>`).join('')}</tbody></table>`
-            : `<p style="font-size:13px;color:#7b8794">Nenhum período cadastrado. Abra o carro na aba
-               <b>🔑 Quem ficou com o carro</b> e preencha — é isso que faz o sistema saber de quem é cada multa.</p>`) +
+        bloco('🔑 A história desta pessoa nos nossos carros', histBloco(nome, periodos)) +
 
         bloco('🎫 Multas, pedágios e danos desta pessoa' +
               (aberto ? ` — <span class="val-neg">em aberto ${fmt(aberto)}</span>` : ''),
@@ -3039,10 +3136,27 @@
             + linhaSeg(seg.vencido, '#b42318', '#fdeaea', '🛡️ Seguro VENCIDO')
             + linhaSeg(seg.perto,   '#a15c00', '#fff8e6', '🛡️ Seguro vencendo em até 30 dias');
 
+        // 🔑 clientes com período sobreposto em dois carros, ou período sem data
+        let avisoClientes = '';
+        try {
+            const cc = clientesComConflito();
+            const comAlerta = cc.filter(x => x.alertas), semData = cc.filter(x => x.semData);
+            if (comAlerta.length || semData.length) {
+                const p = [];
+                if (comAlerta.length) p.push('<b>' + comAlerta.length + '</b> pessoa(s) aparecem com <b>dois carros ao mesmo tempo</b>');
+                if (semData.length) p.push('<b>' + semData.reduce((a, x) => a + x.semData, 0) + '</b> período(s) <b>sem data</b>');
+                avisoClientes = `<div class="aviso-pend" style="background:#fff8e6;border-color:#f0dfae;border-left:4px solid #d99a00">
+                    🔑 <b style="color:#a15c00">Períodos para conferir:</b> ${p.join(' · ')}.
+                    Abra a ficha da pessoa em <b>🔑 Períodos e cobranças</b> — a linha do tempo mostra onde está o choque.
+                    <div style="margin-top:4px;color:#5a6b7a">${comAlerta.slice(0, 8).map(x => escapaHtml(x.nome)).join(' · ')}</div>
+                  </div>`;
+            }
+        } catch (e) {}
+
         const partes = [];
         if (semPlaca) partes.push(`<b>${semPlaca}</b> carro${semPlaca > 1 ? 's' : ''} sem placa`);
         if (semNome) partes.push(`<b>${semNome}</b> carnê${semNome > 1 ? 's' : ''} sem o nome do cliente`);
-        el.innerHTML = avisosSeguro + (partes.length
+        el.innerHTML = avisosSeguro + avisoClientes + (partes.length
             ? `<div class="aviso-pend">📝 Falta preencher: ${partes.join(' · ')}. Abra o carro e complete quando puder.</div>`
             : '');
     }
@@ -3502,6 +3616,28 @@
         return juntarPeriodos(((c && c.pagamentos) || []).map(periodoDaFicha).filter(Boolean));
     }
 
+    /* A mesma pessoa passou por vários carros (ela explicou: troca por batida, por melhorar de
+       veículo, ou volta para o anterior). As fichas sozinhas NÃO sabem separar isso: cada ficha
+       diz os meses pagos àquele carro, e quando os meses batem em dois carros o rascunho fica
+       sobreposto. Então eu procuro o choque e mostro — quem decide é ela, com o nome do grupo. */
+    function conflitoEmOutroCarro(c, l) {
+        if (!l.de) return null;
+        const iniL = histDias(l.de), fimL = l.ate ? histDias(l.ate) : iniL;
+        const achados = [];
+        (database.carros || []).forEach(o => {
+            if (o === c || (c && o.id === c.id)) return;
+            (o.locacoes || []).forEach(x => {
+                if (!mesmoNome(x.cliente, l.cliente) || !x.de) return;
+                const iniX = histDias(x.de), fimX = x.ate ? histDias(x.ate) : iniX;
+                if (iniL <= fimX && iniX <= fimL) {
+                    const q = Math.min(fimL, fimX) - Math.max(iniL, iniX) + 1;
+                    achados.push(((o.marca || '') + ' ' + (o.placa || '')).trim() + ' (' + q + ' dia(s))');
+                }
+            });
+        });
+        return achados.length ? achados : null;
+    }
+
     function preverLocacoesFichas() {
         const alvo = document.getElementById('carro-loc-previa'); if (!alvo) return;
         const c = carroEditando || {};
@@ -3512,6 +3648,8 @@
             return;
         }
         const novos = achados.filter(l => !cLocacoes.some(x => mesmoNome(x.cliente, l.cliente) && (x.de || '') === (l.de || '')));
+        const conflitos = novos.map(l => ({cliente: l.cliente, onde: conflitoEmOutroCarro(c, l)}))
+                               .filter(x => x.onde);
         if (!novos.length) {
             alvo.innerHTML = '<div class="aviso-pend" style="background:#eaf5ee;border-color:#bfe0cc">✅ Os ' +
                 achados.length + ' período(s) que eu acho nas fichas já estão na lista abaixo.</div>';
@@ -3520,6 +3658,8 @@
         const dm = i => i ? i.split('-').reverse().join('/') : '<i style="color:#b42318">falta</i>';
         alvo.innerHTML = '<div class="aviso-pend" style="margin:10px 0"><b>' + novos.length +
             ' período(s) achado(s) nas fichas de pagamento.</b> Nada foi gravado ainda — confira e depois use o botão.' +
+            '<div style="color:#5a6b7a;font-size:12px;margin:4px 0 8px">Isto é um <b>rascunho</b> tirado das fichas: ' +
+            'elas dizem quem pagou e quanto, mas não dizem sempre em que dia trocou de carro.</div>' +
             '<div style="max-height:210px;overflow:auto;margin:10px 0;background:#fff;border:1px solid #e5e3de;border-radius:6px">' +
             '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
             '<tr style="background:#faf9f7"><th style="text-align:left;padding:5px 10px">Quem</th>' +
@@ -3531,6 +3671,11 @@
                 '</td><td style="padding:5px 10px;border-top:1px solid #f0efec;color:#5a6b7a">' + escapaHtml(l.obs) + '</td></tr>').join('') +
             '</table></div>' +
             (novos.some(l => l.incerto) ? '<div style="color:#a15c00;margin-bottom:8px">⚠️ Onde está escrito <b>falta</b>, o ano não aparece na ficha. Eu não chuto — preencha na tabela depois de trazer.</div>' : '') +
+            (conflitos.length ? '<div style="color:#b42318;background:#fdeaea;border:1px solid #f2c9c4;border-radius:5px;padding:8px 11px;margin-bottom:9px">' +
+                '⚠️ <b>Atenção — a mesma pessoa já aparece em outro carro nessas datas:</b><br>' +
+                conflitos.map(x => '· <b>' + escapaHtml(x.cliente) + '</b> também está em ' + escapaHtml(x.onde.join(', '))).join('<br>') +
+                '<br>Ela trocava de carro, então provavelmente o período certo é <b>mais curto</b> nos dois. ' +
+                'A ficha sabe <b>quem e quanto</b>; quem sabe <b>quando</b> é o nome do grupo do WhatsApp.</div>' : '') +
             '<button class="btn" type="button" onclick="usarLocacoesFichas()">⬇️ Trazer estes ' + novos.length + ' para a tabela</button>' +
             ' <small style="color:#5a6b7a">depois confira e clique em Salvar Carro</small></div>';
     }
