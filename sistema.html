@@ -784,9 +784,18 @@
                 <div class="form-group"><label>Placa *</label><input type="text" id="carro-placa" placeholder="9DHW447"></div>
                 <div class="form-group"><label>Placas anteriores</label><input type="text" id="carro-placa-antiga" placeholder="9ETZ038, 8YES705"><small style="color:#5a6b7a">separe por vírgula. Placa troca por roubo, por perda total que vocês ficaram, ou por mudança de estado — o VIN é que diz que é o mesmo carro.</small></div>
                 <div class="form-group"><label>Cor</label><input type="text" id="carro-cor" placeholder="AZUL"></div>
+                <div class="form-group"><label>Região</label>
+                    <select id="carro-regiao" onchange="segSugereMensal()">
+                        <option value="">— escolha —</option>
+                        <option value="CA">🌉 Califórnia</option>
+                        <option value="LV">🎲 Las Vegas</option>
+                        <option value="TX">🤠 Texas</option>
+                        <option value="HI">🌺 Hawaii</option>
+                        <option value="AR">🌲 Arkansas</option>
+                    </select><small id="carro-regiao-dica" style="color:#5a6b7a"></small></div>
                 <div class="form-group"><label>Cliente atual</label><input type="text" id="carro-cliente-atual" placeholder="Nome de quem está com o carro"></div>
                 <div class="form-group"><label>Valor de compra $</label><input type="number" step="0.01" id="carro-valorcompra" placeholder="4133.00" onchange="atualizarBalanco()"></div>
-                <div class="form-group"><label>🚑 Perda total — o que o seguro pagou $</label><input type="number" step="0.01" id="carro-indeniz" placeholder="0.00" onchange="atualizarBalanco()" title="Se o seguro deu perda total e indenizou, ponha aqui. Entra como dinheiro que entrou, para o carro mostrar o lucro ou o prejuízo de verdade."></div>
+                <div class="form-group"><label>🚑 Perda total — o que o seguro pagou $</label><input type="number" step="0.01" id="carro-indeniz" placeholder="0.00" onchange="atualizarBalanco();segAvisoPerdaTotal()" title="Se o seguro deu perda total e indenizou, ponha aqui. Entra como dinheiro que entrou, para o carro mostrar o lucro ou o prejuízo de verdade."><small id="carro-indeniz-aviso"></small></div>
                 <div class="form-group"><label>💥 Data da batida / sinistro</label><input type="date" id="carro-databatida" onchange="sugerirResponsavel()"></div>
                 <div class="form-group"><label>💥 Quem era o responsável</label><input type="text" id="carro-responsavel" list="lista-de-clientes" placeholder="quem estava com o carro"><small id="carro-resp-dica" style="color:#7b8794;font-size:11px"></small></div>
                 <div class="form-group"><label>Milhas</label><input type="text" id="carro-km" placeholder="43283"></div>
@@ -806,7 +815,15 @@
                     <div class="form-group"><label>Nº da apólice</label><input type="text" id="carro-seg-apolice" placeholder="opcional"></div>
                     <div class="form-group"><label>Início da vigência</label><input type="date" id="carro-seg-inicio" onchange="segVencAuto()"></div>
                     <div class="form-group"><label>Vence em</label><input type="date" id="carro-seg-venc"><small id="carro-seg-dica" style="color:#5a6b7a"></small></div>
-                    <div class="form-group"><label>Valor por mês $</label><input type="number" step="0.01" id="carro-seg-mensal" placeholder="130.00"><small style="color:#5a6b7a">média: C-MAX $130 · Outlander $180 · MKZ $150</small></div>
+                    <div class="form-group"><label>Entrada $ <span style="font-weight:400;color:#5a6b7a">(1ª parcela)</span></label><input type="number" step="0.01" id="carro-seg-entrada" placeholder="0.00"><small style="color:#5a6b7a">no Texas houve entrada: MKZ $240 · Outlander $360</small></div>
+                    <div class="form-group"><label>Valor por mês $</label><input type="number" step="0.01" id="carro-seg-mensal" placeholder="130.00"><small id="carro-seg-dica-mensal" style="color:#5a6b7a">escolha a Região que eu sugiro o valor</small></div>
+                    <div class="form-group"><label>Cobertura</label>
+                        <select id="carro-seg-cobertura">
+                            <option value="">— não sei —</option>
+                            <option value="total">🛡️ Total (full)</option>
+                            <option value="parcial">⚠️ Não é total</option>
+                        </select><small style="color:#5a6b7a">seguro que não é total <b>não paga o próprio carro</b> na batida</small></div>
+                    <div class="form-group"><label>Apólice no nome de</label><input type="text" id="carro-seg-titular" placeholder="Joice, Geraldo, Gustavo..."><small style="color:#5a6b7a">pode ser diferente do nome no título</small></div>
                     <div class="form-group"><label>Situação</label>
                         <select id="carro-seg-situacao" onchange="segVencAuto()">
                             <option value="ativo">✅ Ativo</option>
@@ -2828,6 +2845,7 @@
             set('carro-status', c.status || 'ALUGADO'); set('carro-desc', c.desc);
             set('carro-tipo', c.tipo || 'CARRO');
             set('carro-placa-antiga', c.placaAntiga);
+            const rg = document.getElementById('carro-regiao'); if (rg) rg.value = c.regiao || '';
             const setv = (el, v) => { const e = document.getElementById(el); if (e) e.value = (v === undefined || v === null) ? '' : v; };
             setv('carro-valorvenda', c.valorVenda); setv('carro-entrada', c.entrada);
             setv('carro-valorcompra', c.valorCompra);
@@ -2900,6 +2918,7 @@
                 seguro: lerSeguroDoForm(),
                 tipo: g('carro-tipo') || 'CARRO',
                 placaAntiga: g('carro-placa-antiga'),
+                regiao: g('carro-regiao'),
                 desc: g('carro-desc'),
                 gastosLista: cGastos, vistoria: cVistoria, pagamentos: cPagamentos, balanco: cBalanco,
                 valorVenda: parseFloat(g('carro-valorvenda')) || 0,
@@ -2984,7 +3003,29 @@
     }
 
     /* ============ 🛡️ SEGURO DO CARRO ============ */
-    const SEG_MEDIA = [[/OUTLANDER/i, 180], [/MKZ/i, 150], [/C-?MAX/i, 130]];
+    /* A tabela do seguro é por REGIÃO, não só por modelo — ela avisou:
+       "isso lá na Califórnia; os carros do Hawaii (Kia) e daqui do Texas, os seguros são
+       diferentes". Califórnia: valores que ela usava para calcular por cima. Hawaii: $120 por
+       carro, qualquer modelo. Texas: tem ENTRADA além da mensalidade. */
+    const SEG_TABELA = {
+        CA: {nome: 'Califórnia', modelos: [[/OUTLANDER/i, {mensal: 180, cobertura: 'total'}],
+                                           [/MKZ/i,       {mensal: 150, cobertura: 'total'}],
+                                           [/C-?MAX/i,    {mensal: 130, cobertura: 'total'}]]},
+        LV: {nome: 'Las Vegas', nota: 'os carros de Las Vegas seguem com placa e seguro da Califórnia',
+             modelos: [[/./, {mensal: 150, cobertura: 'total', seg: 'STATE FARM', titular: 'Gustavo',
+                              obs: 'hoje está no nome do Gustavo (filho) — confira se é State Farm ou Farmers'}]]},
+        TX: {nome: 'Texas',      modelos: [[/OUTLANDER/i, {mensal: 152, entrada: 360, cobertura: 'total'}],
+                                           [/MKZ/i,       {mensal: 112, entrada: 240, cobertura: 'total'}]]},
+        HI: {nome: 'Hawaii', nota: 'no Hawaii o seguro NÃO era total',
+             modelos: [[/./, {mensal: 120, entrada: 135, cobertura: 'parcial'}]]},
+        AR: {nome: 'Arkansas',   modelos: []}
+    };
+    const SEG_COB = {total: '🛡️ Total (full)', parcial: '⚠️ Não é total', '': '— não sei'};
+    function segSugestao(regiao, modelo) {
+        const r = SEG_TABELA[regiao]; if (!r) return null;
+        const m = (r.modelos || []).find(([re]) => re.test(String(modelo || '')));
+        return m ? Object.assign({regiao: r.nome, nota: r.nota || ''}, m[1]) : null;
+    }
     const SEG_MES = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
 
     function segEl(id) { return document.getElementById(id); }
@@ -2992,8 +3033,9 @@
     function carregarSeguro(c) {
         const s = c.seguro || {};
         const p = (id, v) => { const e = segEl(id); if (e) e.value = v || ''; };
-        p('carro-seg-apolice', s.apolice); p('carro-seg-inicio', s.inicio);
-        p('carro-seg-venc', s.venc); p('carro-seg-mensal', s.mensal);
+        p('carro-seg-apolice', s.apolice); p('carro-seg-inicio', s.inicio); p('carro-seg-entrada', s.entrada);
+        p('carro-seg-venc', s.venc); p('carro-seg-mensal', s.mensal); p('carro-seg-titular', s.titular);
+        const cb = segEl('carro-seg-cobertura'); if (cb) cb.value = s.cobertura || '';
         p('carro-seg-cancelou', s.cancelou);
         const sit = segEl('carro-seg-situacao'); if (sit) sit.value = s.situacao || 'ativo';
         const pv = segEl('carro-seg-previa'); if (pv) pv.innerHTML = '';
@@ -3005,18 +3047,38 @@
         const o = {
             apolice: v('carro-seg-apolice'), inicio: v('carro-seg-inicio'),
             venc: v('carro-seg-venc'), mensal: parseFloat(v('carro-seg-mensal')) || 0,
-            situacao: v('carro-seg-situacao') || 'ativo', cancelou: v('carro-seg-cancelou')
+            entrada: parseFloat(v('carro-seg-entrada')) || 0,
+            situacao: v('carro-seg-situacao') || 'ativo', cancelou: v('carro-seg-cancelou'),
+            cobertura: v('carro-seg-cobertura'), titular: v('carro-seg-titular')
         };
         // se está tudo vazio, não cria o objeto à toa
-        if (!o.apolice && !o.inicio && !o.venc && !o.mensal && !o.cancelou) return undefined;
+        if (!o.apolice && !o.inicio && !o.venc && !o.mensal && !o.entrada && !o.cancelou
+            && !o.cobertura && !o.titular) return undefined;
         return o;
     }
 
     function segSugereMensal() {
-        const el = segEl('carro-seg-mensal'); if (!el || el.value) return;
         const modelo = (segEl('carro-marca') || {}).value || '';
-        const m = SEG_MEDIA.find(([re]) => re.test(modelo));
-        if (m) el.placeholder = m[1] + '.00 (sua média para este modelo)';
+        const regiao = (segEl('carro-regiao') || {}).value || '';
+        const dica = segEl('carro-seg-dica-mensal');
+        const el = segEl('carro-seg-mensal'), ent = segEl('carro-seg-entrada');
+        const s = segSugestao(regiao, modelo);
+        if (!s) {
+            if (dica) dica.textContent = regiao
+                ? 'não tenho valor de tabela para este modelo nesta região — preencha à mão'
+                : 'escolha a Região que eu sugiro o valor';
+            return;
+        }
+        if (el && !el.value) el.placeholder = s.mensal.toFixed(2) + ' (sua tabela — ' + s.regiao + ')';
+        if (ent && !ent.value && s.entrada) ent.placeholder = s.entrada.toFixed(2) + ' (sua tabela — ' + s.regiao + ')';
+        const cb = segEl('carro-seg-cobertura'); if (cb && !cb.value && s.cobertura) cb.value = s.cobertura;
+        const tt = segEl('carro-seg-titular');  if (tt && !tt.value && s.titular)  tt.placeholder = s.titular + ' (sua tabela)';
+        const sg = segEl('carro-seguro');       if (sg && !sg.value && s.seg)       sg.placeholder = s.seg + ' (sua tabela)';
+        if (dica) dica.innerHTML = 'sua tabela para <b>' + escapaHtml(s.regiao) + '</b>: $ ' + s.mensal.toFixed(2) + ' por mês' +
+            (s.entrada ? ' · entrada $ ' + s.entrada.toFixed(2) : ' · sem entrada') +
+            (s.cobertura === 'parcial' ? ' · <b style="color:#a15c00">não é seguro total</b>' : '') +
+            (s.nota ? '<br><span style="color:#a15c00">' + escapaHtml(s.nota) + '</span>' : '') +
+            (s.obs ? '<br><span style="color:#a15c00">' + escapaHtml(s.obs) + '</span>' : '');
     }
 
     // início + 6 meses = vencimento, se ela não tiver posto outro
@@ -3035,6 +3097,18 @@
         dica.style.color = st ? st.cor : '#5a6b7a';
     }
 
+    // seguro que não é total não indeniza o próprio carro — avisar ao lançar perda total
+    function segAvisoPerdaTotal() {
+        const el = segEl('carro-indeniz'), cb = segEl('carro-seg-cobertura');
+        const alvo = document.getElementById('carro-indeniz-aviso');
+        if (!alvo) return;
+        const v = parseFloat(el && el.value) || 0;
+        alvo.innerHTML = (v > 0 && cb && cb.value === 'parcial')
+            ? '<span style="color:#a15c00">⚠️ a apólice deste carro está marcada como <b>não total</b> — ' +
+              'seguro assim normalmente não paga o próprio carro. Confira se este valor veio mesmo do seguro.</span>'
+            : '';
+    }
+
     // devolve {nivel, texto, cor, dias} ou null
     function segSituacao(c) {
         const s = c.seguro; if (!s || !s.venc) return null;
@@ -3051,17 +3125,24 @@
     // meses que a apólice cobre e que ainda não têm lançamento
     function seguroMesesEmFalta(c) {
         const s = c.seguro;
-        if (!s || !s.inicio || !(s.mensal > 0)) return [];
+        if (!s || !s.inicio || !(s.mensal > 0 || s.entrada > 0)) return [];
         const ini = new Date(s.inicio + 'T12:00:00');
         let fim = new Date(); fim.setHours(12, 0, 0, 0);
         if (s.situacao === 'cancelado' && s.cancelou) fim = new Date(s.cancelou + 'T12:00:00');
         const jaTem = {};
         (c.gastosLista || []).forEach(g => { if (g.seguroMes) jaTem[g.seguroMes] = true; });
         const faltam = [];
+        // a entrada (1a parcela) e um lancamento so, no mes do inicio
+        if (s.entrada > 0 && !jaTem['ENTRADA']) faltam.push({
+            chave: 'ENTRADA', ano: String(ini.getFullYear()),
+            dia: SEG_MES[ini.getMonth()] + ' ' + ini.getDate(),
+            obs: 'SEGURO ' + ((c.seg || '').toUpperCase() || '') + ' — ENTRADA',
+            gasto: s.entrada
+        });
         const d = new Date(ini.getFullYear(), ini.getMonth(), 1, 12);
         while (d <= fim && faltam.length < 120) {
             const chave = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-            if (!jaTem[chave]) faltam.push({
+            if (!jaTem[chave] && s.mensal > 0) faltam.push({
                 chave, ano: String(d.getFullYear()),
                 dia: SEG_MES[d.getMonth()] + ' 1',
                 obs: 'SEGURO ' + ((c.seg || '').toUpperCase() || 'MENSAL'),
@@ -3082,8 +3163,12 @@
         if (!c.seguro || !c.seguro.inicio) {
             alvo.innerHTML = '<div class="aviso-pend">Preencha o <b>início da vigência</b> para eu calcular os meses.</div>'; return;
         }
-        if (!(c.seguro.mensal > 0)) {
-            alvo.innerHTML = '<div class="aviso-pend">Preencha o <b>valor por mês</b>. Sua média: C-MAX $130 · Outlander $180 · MKZ $150.</div>'; return;
+        if (!(c.seguro.mensal > 0) && !(c.seguro.entrada > 0)) {
+            const sg = segSugestao((segEl('carro-regiao') || {}).value, c.marca);
+            alvo.innerHTML = '<div class="aviso-pend">Preencha o <b>valor por mês</b>.' +
+                (sg ? ' Sua tabela para ' + escapaHtml(sg.regiao) + ': <b>$ ' + sg.mensal.toFixed(2) + '</b> por mês' +
+                      (sg.entrada ? ' e entrada de <b>$ ' + sg.entrada.toFixed(2) + '</b>' : '') + '.'
+                    : ' Escolha a <b>Região</b> na ficha que eu sugiro o valor.') + '</div>'; return;
         }
         const faltam = seguroMesesEmFalta(c);
         if (!faltam.length) {
