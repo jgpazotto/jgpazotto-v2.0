@@ -534,7 +534,7 @@
                     </div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
                         <span>Carro deste grupo:</span>
-                        <select id="zap-carro" style="padding:8px;border:1px solid var(--border);border-radius:5px;min-width:260px"></select>
+                        <select id="zap-carro" onchange="zapTrocouCarro()" style="padding:8px;border:1px solid var(--border);border-radius:5px;min-width:260px"></select>
                         <button class="btn" onclick="document.getElementById('zap-pasta').click()">📁 Escolher a pasta (com fotos)</button>
                         <input type="file" id="zap-pasta" style="display:none" webkitdirectory directory multiple onchange="lerZapPasta(event)">
                         <button class="btn btn-small" onclick="document.getElementById('zap-file').click()">📄 Só a conversa (.txt)</button>
@@ -833,6 +833,7 @@
                 </div>
                 <button class="btn" type="button" onclick="preverSeguroMensal()" style="margin-top:6px">📋 Ver os lançamentos mensais que faltam</button>
                 <div id="carro-seg-previa"></div>
+                <div id="carro-seg-papeis" style="margin-top:8px"></div>
             </div>
             <div class="form-grid">
                 <div class="form-group"><label>Fastrack</label><input type="text" id="carro-fastrack" placeholder="SITE"></div>
@@ -1459,7 +1460,7 @@
                              'saldo','carnes','debitos','valorVenda','entrada','valorCompra',
                              'indenizacaoSeguro','zapUltimaData',
                              'anuncio','fichaAnteriorLocacao','gastosDaPlanilhaAntiga'];
-    const CAMPOS_PESADOS  = ['fotos','vistoria','fotosVistoria','zapFotosUsadas'];
+    const CAMPOS_PESADOS  = ['fotos','vistoria','fotosVistoria','zapFotosUsadas','seguroPapeis'];
 
     // Cada tela do menu depende de uma área. Sem a área, a tela não aparece.
     const AREA_DA_TELA = {
@@ -3039,7 +3040,23 @@
         p('carro-seg-cancelou', s.cancelou);
         const sit = segEl('carro-seg-situacao'); if (sit) sit.value = s.situacao || 'ativo';
         const pv = segEl('carro-seg-previa'); if (pv) pv.innerHTML = '';
+        mostrarPapeisSeguro(c);
         segVencAuto();
+    }
+
+    // Os papéis do seguro que vieram do WhatsApp (apólice, cartão, aviso de vencimento).
+    function mostrarPapeisSeguro(c) {
+        const el = segEl('carro-seg-papeis'); if (!el) return;
+        const ps = (c && c.seguroPapeis) || [];
+        if (!ps.length) { el.innerHTML = ''; return; }
+        el.innerHTML = '<div style="font-size:12px;color:#5a6b7a;margin-bottom:4px">🛡️ Papéis do seguro guardados (' + ps.length + ')</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">' + ps.map((x, i) =>
+                '<a href="' + x.foto + '" target="_blank" title="' + escapaHtml((x.nome || '') + ' · ' + (x.dia || '')) + '" ' +
+                'style="display:inline-block;text-align:center;text-decoration:none;color:#33475b;font-size:10px">' +
+                (x.pdf ? '<span style="width:86px;height:86px;display:flex;align-items:center;justify-content:center;font-size:30px;' +
+                         'border:1px solid #dfe6ec;border-radius:6px;background:#f7f9fb">📄</span>'
+                       : '<img src="' + x.foto + '" style="width:86px;height:86px;object-fit:cover;border:1px solid #dfe6ec;border-radius:6px">') +
+                '<div>' + escapaHtml(x.dia || '') + '</div></a>').join('') + '</div>';
     }
 
     function lerSeguroDoForm() {
@@ -4558,7 +4575,9 @@
         anun: {rot: '📢 Foto para o anúncio',          cor: '#b8912b',
                ajuda: 'Vai para as fotos do carro e sai no site, já com a marca d\'água.'},
         docli:{rot: '📄 Documento do cliente',         cor: '#6b3fa0',
-               ajuda: 'CNH, contrato, comprovante. Vai para a ficha DA PESSOA, não do carro. Sem marca d\'água.'}
+               ajuda: 'CNH, contrato, comprovante. Vai para a ficha DA PESSOA, não do carro. Sem marca d\'água.'},
+        apol: {rot: '🛡️ Papel do seguro',             cor: '#2b6cb0',
+               ajuda: 'Apólice, cartão do seguro, aviso de vencimento. Fica guardado no bloco 🛡️ Apólice do carro.'}
     };
     // Nome normalizado: "José  Silva" e "jose silva" são a mesma pessoa.
     function nomeChave(x) {
@@ -4591,7 +4610,10 @@
         let q = 0;
         zapAchados.forEach(a => {
             if (!a.usar || !a.fotos || !a.fotos.length) return;
-            const nome = a.fotos.filter(x => zapArquivos[x] && !/\.(mp4|mov|pdf)$/i.test(x))[0];
+            const fora = a.fotosFora || {};
+            const mesmoDia = x => { const f = (a.fotosInfo || {})[x] || {}; return !f.iso || !a.iso || f.iso === a.iso; };
+            const candidatas = a.fotos.filter(x => zapArquivos[x] && !fora[x] && !/\.(mp4|mov|pdf)$/i.test(x));
+            const nome = candidatas.filter(mesmoDia)[0] || candidatas[0];
             if (nome) { a.destino = a.destino || {}; a.destino[nome] = 'comp'; q++; }
         });
         mostrarZap();
@@ -4615,7 +4637,7 @@
 
     function zapLupaAndar(passo) {
         const a = zapAchados[zapLupa.i];
-        const tem = (a.fotos || []).filter(x => zapArquivos[x]);
+        const tem = (a.fotos || []).filter(x => zapArquivos[x] && !(a.fotosFora || {})[x]);
         if (tem.length < 2) return;
         let p = tem.indexOf(a.fotos[zapLupa.k]);
         p = (p + passo + tem.length) % tem.length;
@@ -4645,7 +4667,7 @@
             document.body.appendChild(ov);
             document.addEventListener('keydown', zapTeclaLupa);
         }
-        const tem = (a.fotos || []).filter(x => zapArquivos[x]);
+        const tem = (a.fotos || []).filter(x => zapArquivos[x] && !(a.fotosFora || {})[x]);
         const pos = tem.indexOf(nome) + 1;
         const atual = zapDestinoDe(a, nome);
         const eVideo = /\.(mp4|mov)$/i.test(nome), ePdf = /\.pdf$/i.test(nome);
@@ -4677,9 +4699,20 @@
             '<div style="color:#fff;font-size:14px;text-align:center">' + escapaHtml(a.dia) + ' · ' +
               escapaHtml(a.obs) + ' · <b>' + fmt(a.gasto) + '</b>' +
               (tem.length > 1 ? ' <span style="color:#aab6c2">(foto ' + pos + ' de ' + tem.length + ')</span>' : '') + '</div>' +
+            (() => {
+                const f = (a.fotosInfo || {})[nome] || {};
+                const outroDia = f.iso && a.iso && f.iso !== a.iso;
+                return '<div style="color:' + (outroDia ? '#ffd77a' : '#8a97a5') + ';font-size:12px;text-align:center">' +
+                    '📷 foto mandada em <b>' + escapaHtml(f.dia || 'dia não identificado') + '</b>' +
+                    (f.dif ? (f.dif > 0 ? ' · ' + f.dif + ' mensagem(ns) DEPOIS desta linha' : ' · ' + (-f.dif) + ' mensagem(ns) ANTES') : ' · na mesma mensagem') +
+                    (outroDia ? ' — <b>é de outro dia, pode não ser desta linha</b>' : '') + '</div>';
+            })() +
             '<div style="color:#cfd8e3;font-size:13px">Para que serve esta foto? (clique de novo para desmarcar)</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
-              botao('comp') + botao('vist') + botao('anun') + botao('docli') + '</div>' +
+              botao('comp') + botao('vist') + botao('anun') + botao('apol') + botao('docli') + '</div>' +
+            '<button onclick="zapFotoFora(' + zapLupa.i + ',\'' + nome.replace(/'/g, "\\'") + '\');zapFecharLupa()" ' +
+              'style="background:#ffffff22;color:#fff;border:1px solid #ffffff55;padding:7px 14px;border-radius:8px;' +
+              'cursor:pointer;font-size:12px">✕ Esta foto não é desta linha</button>' +
             campoDono +
             (atual ? '<div style="color:#ffd77a;font-size:12px;text-align:center;max-width:520px">' +
                '⚠️ Isto só <b>marca</b>. Para valer, feche e clique em <b>💾 Gravar</b> no fim da lista.' +
@@ -4698,36 +4731,91 @@
         else if (ev.key === 'ArrowRight') { ev.preventDefault(); zapLupaAndar(1); }
     }
 
+    // ===== TAMANHO DAS FOTOS =====
+    // Ela confere olhando: foto pequena obriga a abrir uma por uma. O tamanho é uma
+    // variável de CSS, então mudar NÃO redesenha a lista (ela não perde o lugar).
+    const ZAP_TAM = {p: 64, m: 120, g: 190};
+    function zapTamanhoFotos(q) {
+        const px = ZAP_TAM[q] || ZAP_TAM.m;
+        document.documentElement.style.setProperty('--zapf', px + 'px');
+        try { localStorage.setItem('jgpazotto_zap_tam', q); } catch (e) {}
+        ['p','m','g'].forEach(k => {
+            const b = document.getElementById('zap-tam-' + k);
+            if (b) b.style.cssText = 'padding:3px 10px;border-radius:6px;cursor:pointer;font-size:12px;border:1px solid #cfd8e3;' +
+                (k === q ? 'background:#33475b;color:#fff' : 'background:#fff;color:#33475b');
+        });
+    }
+    function zapTamanhoSalvo() {
+        let q = 'm';
+        try { q = localStorage.getItem('jgpazotto_zap_tam') || 'm'; } catch (e) {}
+        return ZAP_TAM[q] ? q : 'm';
+    }
+    function zapHtmlTamanho() {
+        const b = (k, t) => '<button id="zap-tam-' + k + '" onclick="zapTamanhoFotos(\'' + k + '\')">' + t + '</button>';
+        return '<div style="display:flex;gap:6px;align-items:center;margin:8px 0 0;font-size:12px;color:#63707d">' +
+               'Tamanho das fotos:' + b('p', 'pequena') + b('m', 'média') + b('g', 'grande') + '</div>';
+    }
+
+    // Foto que não é desta linha: ela tira da linha (não apaga nada do computador).
+    function zapFotoFora(i, nome) {
+        const a = zapAchados[i]; if (!a) return;
+        a.fotosFora = a.fotosFora || {};
+        a.fotosFora[nome] = true;
+        if (a.destino) delete a.destino[nome];
+        zapAtualizarLinha(i);
+    }
+    function zapFotosVoltar(i) {
+        const a = zapAchados[i]; if (!a) return;
+        a.fotosFora = {};
+        zapAtualizarLinha(i);
+    }
+
     // A tirinha de fotos da linha. Redesenho SÓ ela quando algo muda —
     // é o que impede a tela de pular para o topo.
     function zapTirinha(a, i) {
         const vazio = '<div id="zap-fotos-' + i + '"></div>';
         if (!a.fotos || !a.fotos.length) return vazio;
-        const tem = a.fotos.filter(x => zapArquivos[x]);
-        if (!tem.length) return '<div id="zap-fotos-' + i + '" style="font-size:10px;color:#7b8794">📷 ' +
+        const fora = a.fotosFora || {};
+        const tem = a.fotos.filter(x => zapArquivos[x] && !fora[x]);
+        const escondidas = a.fotos.filter(x => zapArquivos[x] && fora[x]).length;
+        if (!tem.length && !escondidas) return '<div id="zap-fotos-' + i + '" style="font-size:10px;color:#7b8794">📷 ' +
             a.fotos.length + ' foto(s) foram mandadas neste momento da conversa — escolha a <b>pasta</b> para ver</div>';
+        const info = n => (a.fotosInfo || {})[n] || {};
         const quadros = tem.slice(0, 8).map(nome => {
             const k = a.fotos.indexOf(nome);
             const d = zapDestinoDe(a, nome);
-            const borda = d ? ZAP_DEST[d].cor : '#dfe6ec';
+            const f = info(nome);
+            const outroDia = f.iso && a.iso && f.iso !== a.iso;
+            const borda = d ? ZAP_DEST[d].cor : (outroDia ? '#e0a800' : '#dfe6ec');
             const larg = d ? '3px' : '2px';
-            const canto = d ? '<span style="position:absolute;right:-3px;top:-4px;font-size:11px">' +
+            const tracejada = outroDia && !d ? 'border-style:dashed;' : '';
+            const canto = d ? '<span style="position:absolute;right:-3px;top:-5px;font-size:12px">' +
                 ZAP_DEST[d].rot.slice(0, 2) + '</span>' : '';
+            const tirar = '<span onclick="event.stopPropagation();zapFotoFora(' + i + ',\'' + nome.replace(/'/g, "\\'") +
+                '\')" title="esta foto não é desta linha" style="position:absolute;left:-4px;top:-6px;background:#fff;' +
+                'border:1px solid #cfd8e3;border-radius:50%;width:17px;height:17px;line-height:15px;text-align:center;' +
+                'font-size:11px;color:#b42318;cursor:pointer">✕</span>';
+            const dica = escapaHtml((f.dia || '') + (f.dif ? (f.dif > 0 ? ' · ' + f.dif + ' mensagem(ns) depois' : ' · ' + (-f.dif) + ' antes') : ' · na mesma mensagem'));
             const corpo = /\.(mp4|mov|pdf)$/i.test(nome)
-                ? '<span style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;' +
-                  'border-radius:5px;background:#eef2f7;border:' + larg + ' solid ' + borda + '">' +
+                ? '<span style="width:var(--zapf,120px);height:var(--zapf,120px);display:flex;align-items:center;justify-content:center;' +
+                  'border-radius:6px;background:#eef2f7;font-size:24px;border:' + larg + ' solid ' + borda + ';' + tracejada + '">' +
                   (/\.pdf$/i.test(nome) ? '📄' : '🎬') + '</span>'
-                : '<img src="' + zapUrlDe(nome) + '" style="width:46px;height:46px;object-fit:cover;' +
-                  'border-radius:5px;border:' + larg + ' solid ' + borda + '">';
-            return '<span onclick="zapAbrirFoto(' + i + ',' + k + ')" title="clique para ver grande e escolher para que serve" ' +
-                   'style="position:relative;display:inline-block;cursor:zoom-in">' + corpo + canto + '</span>';
+                : '<img src="' + zapUrlDe(nome) + '" loading="lazy" style="width:var(--zapf,120px);height:var(--zapf,120px);object-fit:cover;' +
+                  'border-radius:6px;border:' + larg + ' solid ' + borda + ';' + tracejada + '">';
+            return '<span style="position:relative;display:inline-block">' +
+                   '<span onclick="zapAbrirFoto(' + i + ',' + k + ')" title="' + dica + '" ' +
+                   'style="display:inline-block;cursor:zoom-in">' + corpo + '</span>' + canto + tirar +
+                   (outroDia ? '<div style="font-size:10px;color:#a15c00;text-align:center;max-width:var(--zapf,120px)">⚠️ ' +
+                        escapaHtml(f.dia || 'outro dia') + '</div>' : '') + '</span>';
         }).join('');
         const escolhidas = Object.keys(a.destino || {}).length;
-        return '<div id="zap-fotos-' + i + '" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;align-items:center">' +
+        return '<div id="zap-fotos-' + i + '" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:flex-start">' +
             quadros +
             (tem.length > 8 ? '<span style="font-size:10px;color:#7b8794">+' + (tem.length - 8) + '</span>' : '') +
-            (escolhidas ? '<span style="font-size:10px;color:#1e8449">✓ ' + escolhidas + ' escolhida(s)</span>'
-                        : '<span style="font-size:10px;color:#7b8794">clique na foto para ver grande</span>') +
+            (escolhidas ? '<span style="font-size:11px;color:#1e8449;align-self:center">✓ ' + escolhidas + ' escolhida(s)</span>'
+                        : '<span style="font-size:11px;color:#7b8794;align-self:center">clique na foto para ver grande · ✕ tira a foto que não é desta linha</span>') +
+            (escondidas ? '<a href="#" onclick="zapFotosVoltar(' + i + ');return false" style="font-size:11px;color:#7b8794;align-self:center">' +
+                '↩️ ' + escondidas + ' escondida(s) — mostrar' + '</a>' : '') +
             '</div>';
     }
 
@@ -4779,6 +4867,7 @@
         desconto:  {rot: '🎁 Desconto ao cliente',   cor: '#f3e8ff', ajuda: 'Bônus de indicação. Não é gasto — é crédito que ele tem com vocês.'},
         recebido:  {rot: '💵 Recebimento do cliente',cor: '#e8f6ee', ajuda: 'Depósito, aluguel, acerto. É dinheiro que ENTROU.'},
         fornecedor:{rot: '🤝 Acerto com fornecedor', cor: '#e7f0fb', ajuda: 'Pagamento ao mecânico (Luiz) ou a outro fornecedor.'},
+        seguro:    {rot: '🛡️ Seguro do carro',      cor: '#eaf1fb', ajuda: 'Apólice, parcela ou entrada do seguro. Entra como gasto e marca o mês, para o lembrete não cobrar de novo.'},
         nada:      {rot: '🚫 Não é nada',            cor: '#f7f7f7', ajuda: 'Soma, total, repetição ou o preço de compra do carro.'}
     };
     const ZAP_COBRAR   = /\b(fastrak|fast trak|ped[áa]gio|pedagio|ticket|multa|multas|licenciamento|di?vida|d[íi]vida|toll)\b/i;
@@ -4789,6 +4878,9 @@
     // marco com um aviso na linha e a Joice decide. Não decido por ela.
     const ZAP_TALVEZ_CLIENTE = /\b(gasolina|combust[íi]vel|tanque|limpeza|aspirar|lavagem|lyft|uber|cheiro)\b/i;
     const ZAP_DESCONTO = /\b(b[ôo]nus|bonus|indica[çc][ãa]o|indicacao|indic|desconto|descontar|cortesia)\b/i;
+    // Seguro: a parcela, a entrada e o nome das seguradoras que aparecem nos grupos.
+    // Fica DEPOIS de dano/multa na classificação: "300 parabrisa (seguro)" é dano, não seguro.
+    const ZAP_SEGURO = /\b(seguro|seguros|ap[óo]lice|apolice|allstate|farmers|state\s*farm|statefarm|bristol|progressive|geico|mercury|insurance|policy|premium)\b/i;
 
     function classificarZap(a) {
         if (a.repetida)               return 'nada';
@@ -4797,6 +4889,7 @@
         if (ZAP_DESCONTO.test(a.obs)) return 'desconto';
         if (ZAP_DANO.test(a.obs))     return 'dano';
         if (ZAP_COBRAR.test(a.obs))   return 'cobrar';
+        if (ZAP_SEGURO.test(a.obs))   return 'seguro';
         if (ZAP_RECEITA.test(a.obs))  return 'recebido';
         return 'gasto';
     }
@@ -4896,10 +4989,18 @@
 
         // 3) procura dinheiro em cada linha
         // quais fotos foram mandadas PERTO desta mensagem
+        // Guardo DE QUAL mensagem veio cada foto: a distância em mensagens e o dia.
+        // É isso que deixa eu mostrar primeiro as mais perto e avisar quando a foto é de
+        // outro dia — ela reclamou, com razão, de foto que não tem nada a ver com a linha.
         const fotosPerto = k => {
-            const fora = [];
+            const fora = [], vistos = {};
             for (let j = Math.max(0, k - ZAP_ANTES); j <= Math.min(msgs.length - 1, k + ZAP_DEPOIS); j++)
-                (msgs[j].anexos || []).forEach(nome => { if (fora.length < 8 && fora.indexOf(nome) < 0) fora.push(nome); });
+                (msgs[j].anexos || []).forEach(nome => {
+                    if (fora.length >= 8 || vistos[nome]) return;
+                    vistos[nome] = true;
+                    fora.push({nome, dif: j - k, iso: msgs[j].iso || '', dia: msgs[j].diaBonito || ''});
+                });
+            fora.sort((a, b) => Math.abs(a.dif) - Math.abs(b.dif) || a.dif - b.dif);
             return fora;
         };
 
@@ -4925,12 +5026,76 @@
                 if ((desc.match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) return;
                 if (ZAP_NAO.test(desc)) return;
                 const iso = String(ano) + '-' + String(mes).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
+                const perto = fotosPerto(kMsg);
+                const info = {}; perto.forEach(f => { info[f.nome] = f; });
                 zapAchados.push({dia: dia + ' ' + MES[mes - 1] + '. ' + String(ano).slice(2), ano: String(ano), iso,
                                  obs: desc.slice(0, 70), gasto: Math.round(v * 100) / 100,
                                  quem: x.quem, usar: !ZAP_DUVIDA.test(desc),
-                                 fotos: fotosPerto(kMsg), fotosOk: []});
+                                 fotos: perto.map(f => f.nome), fotosInfo: info, fotosFora: {}, fotosOk: []});
             });
         });
+        zapCarroPeloGrupo(msgs);
+        agruparZap();
+        acharLocacoesZap();
+        mostrarZap();
+    }
+
+    // ===== QUAL CARRO É ESTE GRUPO? =====
+    // Carro errado aqui = lançamento duplicado em OUTRO carro. Então eu leio as placas que o
+    // grupo já teve no nome (a de hoje e as antigas) e caso com a placa de hoje e as anteriores
+    // de cada carro. Só escolho sozinha se der UM carro só; senão peço para ela escolher.
+    function zapPlacasDoCarro(c) {
+        return [c.placa].concat(String(c.placaAntiga || '').split(/[,;\/]/))
+            .map(p => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''))
+            .filter(p => p.length >= 5);
+    }
+    function zapPlacasDoGrupo(msgs) {
+        const nomes = new Set();
+        (msgs || []).forEach(x => {
+            if (x.quem) nomes.add(x.quem);
+            (x.linhas || []).forEach(l => { const m = String(l || '').match(ZAP_RENOMEIA); if (m) nomes.add(m[1]); });
+        });
+        const placas = new Set();
+        nomes.forEach(n => String(n).toUpperCase().split(/[^A-Z0-9]+/)
+            .forEach(p => { if (p.length >= 5 && p.length <= 8 && /\d/.test(p) && /[A-Z]/.test(p)) placas.add(p); }));
+        return placas;
+    }
+    function zapCarrosDoGrupo(msgs) {
+        const placas = zapPlacasDoGrupo(msgs);
+        return (database.carros || []).filter(c => zapPlacasDoCarro(c).some(p => placas.has(p)));
+    }
+    function zapAvisoCarro(html, cor) {
+        const sel = document.getElementById('zap-carro');
+        if (!sel) return;
+        let el = document.getElementById('zap-aviso-carro');
+        if (!el) { el = document.createElement('div'); el.id = 'zap-aviso-carro'; sel.insertAdjacentElement('afterend', el); }
+        el.style.cssText = 'margin:6px 0 0;padding:6px 10px;border-radius:6px;font-size:13px;background:' + (cor || '#f3faf5');
+        el.innerHTML = html;
+    }
+    function zapCarroPeloGrupo(msgs) {
+        const achados = zapCarrosDoGrupo(msgs);
+        const sel = document.getElementById('zap-carro');
+        const nome = c => escapaHtml((c.marca || '') + ' ' + (c.cor || '') + ' · ' + (c.placa || ''));
+        if (achados.length === 1) {
+            if (sel) sel.value = String(achados[0].id);
+            zapAvisoCarro('🚗 Escolhi o carro pela placa do nome do grupo: <b>' + nome(achados[0]) + '</b>' +
+                (achados[0].vin ? ' · VIN ' + escapaHtml(achados[0].vin) : '') + '. Confira antes de gravar.');
+        } else if (achados.length > 1) {
+            zapAvisoCarro('⚠️ A placa deste grupo aparece em <b>' + achados.length + ' carros</b>: ' +
+                achados.map(nome).join(' · ') + '. Pode ser o mesmo carro cadastrado duas vezes — confira pelo VIN ' +
+                'e escolha o carro certo na lista antes de gravar.', '#fff8e1');
+        } else {
+            zapAvisoCarro('⚠️ Não achei a placa deste grupo em nenhum carro. Escolha o carro na lista — ' +
+                'e confira pelo VIN, porque carro parecido não é o mesmo carro.', '#fff8e1');
+        }
+    }
+    // Ela trocou o carro na lista: refaço as sugestões para o carro novo (o corte do
+    // "já importado" e o dono de cada multa dependem do carro).
+    function zapTrocouCarro() {
+        if (!zapMsgs.length) return;
+        const c = carroDoZap();
+        if (c) zapAvisoCarro('🚗 Carro escolhido por você: <b>' + escapaHtml((c.marca || '') + ' ' + (c.cor || '') +
+            ' · ' + (c.placa || '')) + '</b>. Refiz as sugestões para ele.');
         agruparZap();
         acharLocacoesZap();
         mostrarZap();
@@ -5045,20 +5210,40 @@
         }
     }
 
+    // Um carro fica com UMA pessoa por vez (o empréstimo/carro reserva é a exceção). Se já existe
+    // período cobrindo essa data, ou começando a até 3 dias dela, é o mesmo acontecimento escrito
+    // de outro jeito ("Duups"/"Duupz", "Erik"/"Erick", "Francis Monique"/"Francis").
+    function locJaCoberto(lista, l) {
+        const dia = s => s ? Date.parse(String(s).slice(0, 10) + 'T12:00:00Z') / 864e5 : NaN;
+        const d = dia(l.de);
+        if (isNaN(d)) return false;
+        return (lista || []).some(x => {
+            if ((x.tipo || 'aluguel') === 'emprestimo') return false;
+            const a = dia(x.de);
+            if (isNaN(a)) return false;
+            if (Math.abs(a - d) <= 3) return true;
+            const b = dia(x.ate);
+            return a <= d && (isNaN(b) || d < b);
+        });
+    }
+
     function gravarLocacoesZap() {
         const c = carroDoZap();
         if (!c) return alert('Escolha o carro primeiro.');
         c.locacoes = c.locacoes || [];
-        let novos = 0, jaTinha = 0;
+        let novos = 0, jaTinha = 0, jaCoberto = 0;
         zapLocacoes.forEach(l => {
             if (!l.cliente || !l.de) return;
             if (c.locacoes.some(x => mesmoNome(x.cliente, l.cliente) && x.de === l.de)) { jaTinha++; return; }
+            if (locJaCoberto(c.locacoes, l)) { jaCoberto++; return; }
             c.locacoes.push({cliente: l.cliente, tel: l.tel || '', de: l.de, ate: l.ate || '', obs: l.obs || ''});
             novos++;
         });
         saveData();
         alert('✅ Gravei ' + novos + ' período(s) na aba 🔑 Quem ficou com o carro.' +
               (jaTinha ? '\n' + jaTinha + ' já estavam lá e eu não repeti.' : '') +
+              (jaCoberto ? '\n' + jaCoberto + ' ficaram de fora porque o carro já tinha alguém nessas datas ' +
+                           '(é o mesmo período escrito de outro jeito). Confira na aba 🔑.' : '') +
               '\n\nAgora as multas e os danos sabem de quem são: abra o carro, ou a ficha da pessoa' +
               ' na aba 🔑 Períodos e cobranças.');
         mostrarZap();
@@ -5152,8 +5337,87 @@
               'é só marcar as outras na aba "repetidas".');
     }
 
-    const ZAP_ORDEM = ['gasto','jg','cobrar','dano','desconto','recebido','fornecedor','nada'];
+    const ZAP_ORDEM = ['gasto','jg','seguro','cobrar','dano','desconto','recebido','fornecedor','nada'];
     const zapVivas = () => zapAchados.filter(a => !a.repetida && !a.jaImportado);
+
+    // Como o cliente pagou. Muita entrada vem em dinheiro ou Zelle e NÃO tem comprovante —
+    // ela falou isso; então a forma é escrita na mão e a falta de foto não é problema.
+    const ZAP_FORMAS = [['', 'como pagou?'], ['dinheiro', '💵 Dinheiro'], ['zelle', '📱 Zelle'],
+                        ['deposito', '🏦 Depósito / transferência'], ['cartao', '💳 Cartão'],
+                        ['cheque', '🧾 Cheque'], ['outro', '❓ Não sei']];
+
+    // ===== 🛡️ O PAINEL DO SEGURO DENTRO DA TELA DE IMPORTAR =====
+    // Ela achou os papéis do seguro no meio das fotos do grupo: dá para ler a seguradora, o
+    // número da apólice e de que dia até que dia vale. Aqui ela copia isso para o carro sem
+    // sair da tela — e a foto do papel fica guardada pelo destino 🛡️ Papel do seguro.
+    function zapHtmlSeguro(carro) {
+        if (!carro) return '';
+        const s = carro.seguro || {};
+        const dica = segSugestao(carro.regiao, carro.marca) || {};
+        const v = x => escapaHtml(x == null ? '' : String(x));
+        const campo = (id, rot, tipo, val, extra) =>
+            `<div class="form-group"><label>${rot}</label><input type="${tipo}" id="zap-seg-${id}" value="${v(val)}" ${extra || ''}></div>`;
+        return `<div class="vd-card" style="margin-top:10px;background:#f4f8fd;border:1px solid #cfe0f5">
+            <b>🛡️ A apólice deste carro</b>
+            <div style="font-size:12px;color:#5a6b7a;margin:4px 0 8px">
+              Leia no papel do seguro e escreva aqui: vale <b>de que dia até que dia</b>, quanto é por mês e de quem é a apólice.
+              ${dica.mensal ? `Pela sua tabela, ${escapaHtml(dica.regiao || '')} costuma dar <b>$ ${dica.mensal}</b> por mês${dica.entrada ? ` e <b>$ ${dica.entrada}</b> de entrada` : ''}.` : ''}
+              ${carro.regiao ? '' : '<b>Escolha a região na ficha do carro</b> que eu sugiro o valor.'}
+            </div>
+            <div class="form-grid">
+              <div class="form-group"><label>Seguradora</label>
+                <input id="zap-seg-seg" list="lista-seguradoras" value="${v(carro.seg || dica.seg || '')}"></div>
+              ${campo('apolice', 'Número da apólice', 'text', s.apolice)}
+              ${campo('inicio', 'Vale a partir de', 'date', s.inicio)}
+              ${campo('venc', 'Vence em', 'date', s.venc)}
+              ${campo('mensal', 'Por mês $', 'number', s.mensal || dica.mensal || '', 'step="0.01"')}
+              ${campo('entrada', 'Entrada $', 'number', s.entrada || dica.entrada || '', 'step="0.01"')}
+              <div class="form-group"><label>Cobertura</label>
+                <select id="zap-seg-cobertura">
+                  <option value="">— não sei —</option>
+                  <option value="total" ${(s.cobertura || dica.cobertura) === 'total' ? 'selected' : ''}>🛡️ Total (full)</option>
+                  <option value="parcial" ${(s.cobertura || dica.cobertura) === 'parcial' ? 'selected' : ''}>⚠️ Não é total</option>
+                </select></div>
+              ${campo('titular', 'Apólice no nome de', 'text', s.titular || dica.titular || '')}
+            </div>
+            <button class="btn" onclick="zapGravarApolice()">🛡️ Guardar a apólice neste carro</button>
+            <div id="zap-seg-aviso" style="font-size:12px;margin-top:6px;color:#5a6b7a">
+              As linhas abaixo são os <b>pagamentos</b> do seguro. Ao gravar, cada uma marca o seu mês —
+              o lembrete de vencimento não vai cobrar esse mês de novo.</div>
+        </div>`;
+    }
+
+    function zapGravarApolice() {
+        const c = carroDoZap();
+        if (!c) return alert('Escolha o carro primeiro.');
+        const g = id => { const e = document.getElementById('zap-seg-' + id); return e ? e.value.trim() : ''; };
+        const o = {apolice: g('apolice'), inicio: g('inicio'), venc: g('venc'),
+                   mensal: parseFloat(g('mensal')) || 0, entrada: parseFloat(g('entrada')) || 0,
+                   cobertura: g('cobertura'), titular: g('titular'),
+                   situacao: (c.seguro && c.seguro.situacao) || 'ativo',
+                   cancelou: (c.seguro && c.seguro.cancelou) || ''};
+        if (!o.inicio && !o.apolice && !o.mensal && !o.entrada)
+            return alert('Escreva pelo menos a data de início ou o valor, senão não tenho o que guardar.');
+        // vencimento: se ela não escreveu, o seguro deles é de 6 meses
+        if (o.inicio && !o.venc) {
+            const d = new Date(o.inicio + 'T12:00:00'); d.setMonth(d.getMonth() + 6);
+            o.venc = d.toISOString().slice(0, 10);
+        }
+        const seg = g('seg');
+        if (seg) c.seg = seg;
+        c.seguro = o;
+        c.notas = c.notas || [];
+        c.notas.unshift({data: new Date().toISOString().slice(0, 10),
+            texto: 'Apólice guardada pela tela 📲 Importar: ' + (c.seg || 'seguradora não dita') +
+                   (o.apolice ? ' · nº ' + o.apolice : '') + (o.inicio ? ' · de ' + o.inicio : '') +
+                   (o.venc ? ' até ' + o.venc : '') + (o.mensal ? ' · $' + o.mensal + '/mês' : '') +
+                   (o.entrada ? ' · entrada $' + o.entrada : '') + '. Lido do papel do seguro no grupo do WhatsApp.'});
+        saveData();
+        const av = document.getElementById('zap-seg-aviso');
+        if (av) av.innerHTML = '✅ <b>Guardado no carro.</b> O painel já avisa quando estiver perto de vencer' +
+            (o.venc ? ' (vence em ' + escapaHtml(dataBonitaIso(o.venc)) + ')' : '') +
+            '. Para lançar as parcelas mês a mês, abra o carro na aba 🛡️ Apólice e clique em <b>Ver os lançamentos mensais que faltam</b>.';
+    }
 
     function zapHtmlAbas() {
         const conta = t => zapVivas().filter(a => a.tipo === t).length;
@@ -5315,6 +5579,11 @@
              </div>` : ''}
 
             <div id="zap-resumo" style="margin-top:10px">${zapHtmlResumo()}</div>
+            ${zapFiltro === 'seguro' ? zapHtmlSeguro(carro) : ''}
+            ${zapFiltro === 'recebido' ? `<div class="aviso-pend" style="margin-top:8px">💵 Muita entrada vem em
+               <b>dinheiro ou Zelle, sem comprovante</b> — isso é normal e não atrapalha. Diga só <b>como pagou</b>
+               na coluna do lado, que fica registrado mesmo sem foto.</div>` : ''}
+            ${zapHtmlTamanho()}
 
             <div id="zap-rolagem" style="max-height:440px;overflow:auto;margin-top:10px"><table class="mini-table">
               <thead><tr><th style="width:34px">Usar</th><th style="width:100px">Data</th>
@@ -5344,7 +5613,11 @@
                     ? `<input value="${escapaHtml(a.cliente || '')}" list="lista-de-clientes"
                          placeholder="de quem?" style="width:100%"
                          onchange="zapAchados[${i}].cliente=this.value;zapAchados[${i}].clienteTravado=true">
-                       ${a.como ? `<div style="font-size:10px;color:#7b8794">${a.como}</div>` : ''}`
+                       ${a.como ? `<div style="font-size:10px;color:#7b8794">${a.como}</div>` : ''}
+                       ${a.tipo === 'recebido' ? `<select onchange="zapAchados[${i}].forma=this.value"
+                            style="margin-top:4px;width:100%;font-size:12px">
+                            ${ZAP_FORMAS.map(f => `<option value="${f[0]}" ${(a.forma || '') === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
+                          </select>` : ''}`
                     : '<span style="color:#c3ccd6">—</span>'}</td>
               </tr>`; }).join('') ||
                 '<tr><td colspan="6" style="padding:14px;color:#7b8794">Nada nesta aba.</td></tr>'}</tbody>
@@ -5357,6 +5630,7 @@
             </div>
         </div>`;
 
+        zapTamanhoFotos(zapTamanhoSalvo());
         const rolDepois = document.getElementById('zap-rolagem');
         if (rolDepois && yLista) rolDepois.scrollTop = yLista;
         if (yPagina) window.scrollTo(0, yPagina);
@@ -5446,7 +5720,7 @@
         }));
         if (!usar.length && !tarefas.length)
             return alert('Nenhuma linha marcada e nenhuma foto escolhida.');
-        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0, nDoc = 0;
+        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0, nDoc = 0, nApol = 0;
         const pessoasTocadas = [], pessoasNovas = [];
         c.fotos = c.fotos || [];
         c.fotosVistoria = c.fotosVistoria || [];
@@ -5474,6 +5748,13 @@
                         const pronta = await encolherSimples(bruta, 1200);  // documento não se marca
                         if (pronta) { c.fotosVistoria.push({nome: t.nome, dia: t.a.dia, foto: pronta});
                                       c.zapFotosUsadas.push(t.dest + '|' + t.nome); nVist++; }
+                    } else if (t.dest === 'apol') {   // papel do seguro: fica no bloco 🛡️ Apólice do carro
+                        const ePdf = /\.pdf$/i.test(t.nome);
+                        const pronta = ePdf ? (bruta.length < 1400000 ? bruta : '') : await encolherSimples(bruta, 1400);
+                        if (pronta) {
+                            (c.seguroPapeis = c.seguroPapeis || []).push({nome: t.nome, dia: t.a.dia, foto: pronta, pdf: ePdf || undefined});
+                            c.zapFotosUsadas.push(t.dest + '|' + t.nome); nApol++;
+                        } else { fotosRuins++; if (!motivoFoto) motivoFoto = 'o PDF do seguro é grande demais para guardar na ficha — guarde como 📎 comprovante'; }
                     } else {   // documento do cliente: vai para a ficha DA PESSOA
                         const quem = (t.a.docDe || zapDonoDoc(t.a) || '').trim();
                         const pronta = quem ? await encolherSimples(bruta, 1400) : '';
@@ -5514,7 +5795,7 @@
         const jaDeb   = {}; c.debitos.forEach(d => jaDeb[(d.dia||'') + '|' + (d.valor||0)] = true);
         const jaPag   = {}; c.pagamentos.forEach(x => jaPag[(x.dia||'') + '|' + (x.valor||0)] = true);
 
-        const n = {gasto:0, jg:0, cobrar:0, dano:0, desconto:0, recebido:0, fornecedor:0};
+        const n = {gasto:0, jg:0, seguro:0, cobrar:0, dano:0, desconto:0, recebido:0, fornecedor:0};
         let repetidos = 0, semDono = 0;
 
         usar.forEach(a => {
@@ -5527,6 +5808,15 @@
                         fornecedor: a.tipo === 'fornecedor' || undefined,
                         fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
                     jaGasto[chave] = true; n[a.tipo]++; break;
+                }
+                case 'seguro': {
+                    if (jaGasto[chave]) { repetidos++; return; }
+                    // marco o MÊS do seguro: o lembrete automático não gera esse mês de novo
+                    const mesSeg = (a.iso || '').slice(0, 7);
+                    c.gastosLista.push({ano: a.ano, dia: a.dia, obs: '🛡️ ' + a.obs, gasto: a.gasto, recebido: 0,
+                        seguro: true, seguroMes: mesSeg || undefined,
+                        fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
+                    jaGasto[chave] = true; n.seguro++; break;
                 }
                 case 'cobrar': case 'dano': {
                     if (jaDeb[chave]) { repetidos++; return; }
@@ -5548,7 +5838,7 @@
                 case 'recebido': {
                     if (jaPag[chave]) { repetidos++; return; }
                     c.pagamentos.push({dia: a.dia, iso: a.iso, obs: a.obs, valor: a.gasto,
-                                       cliente: a.cliente || '',
+                                       cliente: a.cliente || '', forma: a.forma || '',
                                        fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
                     jaPag[chave] = true; n.recebido++; break;
                 }
@@ -5572,6 +5862,7 @@
               ${linha(n.gasto, 'gasto(s) do carro na aba 💸 Gastos')}
               ${linha(n.jg, 'gasto(s) assumidos pela JG na aba 💸 Gastos')}
               ${linha(n.fornecedor, 'acerto(s) com fornecedor na aba 💸 Gastos')}
+              ${linha(n.seguro, 'pagamento(s) de seguro na aba 💸 Gastos — o mês já fica marcado, o lembrete não repete')}
               ${linha(n.cobrar, 'multa(s)/pedágio na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
               ${linha(n.dano, 'dano(s) na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
               ${linha(n.desconto, 'desconto(s) lançados como crédito do cliente')}
@@ -5580,6 +5871,7 @@
             ${fotosOk ? `<div style="margin-top:6px">📎 <b>${fotosOk}</b> comprovante(s) guardado(s) — aparecem com 📎 na linha do gasto/débito.</div>` : ''}
             ${nAnun ? `<div style="margin-top:6px">📢 <b>${nAnun}</b> foto(s) foram para as <b>fotos do carro</b> (já com a marca d'água) — prontas para o anúncio.</div>` : ''}
             ${nVist ? `<div style="margin-top:6px">🔧 <b>${nVist}</b> foto(s) de <b>vistoria/dano</b> guardadas na ficha do carro, sem marca d'água.</div>` : ''}
+            ${nApol ? `<div style="margin-top:6px">🛡️ <b>${nApol}</b> papel(éis) do seguro guardados no bloco <b>🛡️ Apólice</b> do carro.</div>` : ''}
             ${nDoc ? `<div style="margin-top:6px">📄 <b>${nDoc}</b> documento(s) foram para a ficha de: <b>${escapaHtml(pessoasTocadas.join(', '))}</b>.
                ${pessoasNovas.length ? `<br><span style="color:#b8912b">Criei ficha nova para: <b>${escapaHtml(pessoasNovas.join(', '))}</b> — complete o telefone e o resto quando puder.</span>` : ''}</div>` : ''}
             ${c.zapUltimaData ? `<div style="margin-top:6px">⏮ Marquei que este grupo já foi trazido até <b>${escapaHtml(dataBonitaIso(c.zapUltimaData))}</b>. Da próxima vez eu só trago o que for dessa data para a frente.</div>` : ''}
