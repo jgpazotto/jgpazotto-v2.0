@@ -996,6 +996,7 @@
                 o que o Geraldo falou, o combinado com o cliente. Fica tudo guardado aqui, em ordem.
             </p>
             <button class="btn btn-small" onclick="addNota()">➕ Nova nota</button>
+            <div id="carro-docs-lista" style="margin-top:12px;"></div>
             <div id="carro-notas-lista" style="margin-top:12px;"></div>
 
             <div style="margin-top:26px;padding:16px;border:1px dashed #cfd6de;border-radius:10px;background:#fafbfc;">
@@ -1456,11 +1457,11 @@
     const AREAS = ['carros','carros_dinheiro','fotos','clientes','fornecedores',
                    'imoveis','aluguel','financeiro'];
     // Campos do carro que pertencem a cada área.
-    const CAMPOS_DINHEIRO = ['gastosLista','pagamentos','balanco','totalGastos','totalRecebidos',
+    const CAMPOS_DINHEIRO = ['zapRascunho','gastosLista','pagamentos','balanco','totalGastos','totalRecebidos',
                              'saldo','carnes','debitos','valorVenda','entrada','valorCompra',
                              'indenizacaoSeguro','zapUltimaData',
                              'anuncio','fichaAnteriorLocacao','gastosDaPlanilhaAntiga'];
-    const CAMPOS_PESADOS  = ['fotos','vistoria','fotosVistoria','zapFotosUsadas','seguroPapeis'];
+    const CAMPOS_PESADOS  = ['fotos','vistoria','fotosVistoria','zapFotosUsadas','seguroPapeis','docsCarro'];
 
     // Cada tela do menu depende de uma área. Sem a área, a tela não aparece.
     const AREA_DA_TELA = {
@@ -2884,6 +2885,7 @@
         }
 
         renderGastosCarro(); renderVistoriaCarro(); renderFotosVistoria(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
+        renderDocsCarro(c);
         renderNotas();
         renderCarnes(); renderDebitos(); renderLocacoes();
 
@@ -3858,6 +3860,22 @@
         return Number(d) + ' de ' + (MES[Number(m) - 1] || m) + ' de ' + a;
     }
 
+    // Os documentos DO CARRO (título, registro, smog) que vieram do grupo do WhatsApp.
+    function renderDocsCarro(c) {
+        const el = document.getElementById('carro-docs-lista');
+        if (!el) return;
+        const ds = (c && c.docsCarro) || [];
+        if (!ds.length) { el.innerHTML = ''; return; }
+        el.innerHTML = '<div style="font-size:13px;color:#33475b;margin-bottom:6px"><b>📕 Documentos deste carro</b> (' +
+            ds.length + ') — clique para abrir grande</div><div style="display:flex;gap:10px;flex-wrap:wrap">' +
+            ds.map(x => '<a href="' + x.foto + '" target="_blank" title="' + escapaHtml((x.nome || '') + ' · ' + (x.dia || '')) +
+                '" style="display:inline-block;text-align:center;text-decoration:none;color:#33475b;font-size:11px">' +
+                (x.pdf ? '<span style="width:120px;height:120px;display:flex;align-items:center;justify-content:center;font-size:38px;' +
+                         'border:1px solid #dfe6ec;border-radius:8px;background:#f7f9fb">📄</span>'
+                       : '<img src="' + x.foto + '" style="width:120px;height:120px;object-fit:cover;border:1px solid #dfe6ec;border-radius:8px">') +
+                '<div>' + escapaHtml(x.dia || '') + '</div></a>').join('') + '</div>';
+    }
+
     function renderNotas() {
         const el = document.getElementById('carro-notas-lista');
         if (!el) return;
@@ -4577,7 +4595,9 @@
         docli:{rot: '📄 Documento do cliente',         cor: '#6b3fa0',
                ajuda: 'CNH, contrato, comprovante. Vai para a ficha DA PESSOA, não do carro. Sem marca d\'água.'},
         apol: {rot: '🛡️ Papel do seguro',             cor: '#2b6cb0',
-               ajuda: 'Apólice, cartão do seguro, aviso de vencimento. Fica guardado no bloco 🛡️ Apólice do carro.'}
+               ajuda: 'Apólice, cartão do seguro, aviso de vencimento. Fica guardado no bloco 🛡️ Apólice do carro.'},
+        doccar:{rot: '📕 Documento do carro',          cor: '#0f766e',
+               ajuda: 'Título (pink slip), registro do DMV, placa, smog, recibo de compra. Vai para a aba 📄 Docs e Notas DESTE CARRO.'}
     };
     // Nome normalizado: "José  Silva" e "jose silva" são a mesma pessoa.
     function nomeChave(x) {
@@ -4625,6 +4645,14 @@
     // no meio do caminho — por isso ampliava a foto errada e a tela pulava para o topo.
     // Agora: 1 clique abre a foto grande, e é DENTRO dela que ela escolhe o destino.
     let zapLupa = {i: 0, k: 0};
+    // Zoom: recibo pequeno não se lê no tamanho da tela. 1 = cabe na tela, 2 e 3 = maior,
+    // com barra de rolagem para andar pela foto. Clicar na foto passa de um para o outro.
+    let zapZoom = 1;
+    function zapMudarZoom(q) {
+        zapZoom = q < 1 ? 1 : (q > 4 ? 4 : q);
+        zapDesenharLupa();
+    }
+    function zapGirarZoom() { zapMudarZoom(zapZoom >= 4 ? 1 : zapZoom + 1); }
 
     function zapAbrirFoto(i, k) { zapLupa = {i: i, k: k}; zapDesenharLupa(); }
 
@@ -4636,6 +4664,7 @@
     }
 
     function zapLupaAndar(passo) {
+        zapZoom = 1;
         const a = zapAchados[zapLupa.i];
         const tem = (a.fotos || []).filter(x => zapArquivos[x] && !(a.fotosFora || {})[x]);
         if (tem.length < 2) return;
@@ -4652,6 +4681,7 @@
         // só o COMPROVANTE precisa que a linha seja gravada — os outros três destinos
         // são da ficha (carro ou pessoa) e valem sozinhos, sem virar gasto.
         if (a.destino[nome] === 'comp' && !a.usar && a.tipo !== 'nada') a.usar = true;
+        zapSalvarRascunho();
         zapDesenharLupa();
     }
 
@@ -4671,9 +4701,15 @@
         const pos = tem.indexOf(nome) + 1;
         const atual = zapDestinoDe(a, nome);
         const eVideo = /\.(mp4|mov)$/i.test(nome), ePdf = /\.pdf$/i.test(nome);
-        const midia = eVideo ? '<video src="' + u + '" controls style="max-width:88vw;max-height:58vh;border-radius:8px"></video>'
-                    : ePdf  ? '<iframe src="' + u + '" style="width:88vw;height:58vh;border:0;background:#fff;border-radius:8px"></iframe>'
-                            : '<img src="' + u + '" style="max-width:88vw;max-height:58vh;object-fit:contain;border-radius:8px">';
+        const alt = 64 * zapZoom;   // 64vh, 128vh, 192vh... a rolagem cuida do resto
+        const midia = eVideo ? '<video src="' + u + '" controls style="max-width:88vw;max-height:64vh;border-radius:8px"></video>'
+                    : ePdf  ? '<iframe src="' + u + '" style="width:88vw;height:72vh;border:0;background:#fff;border-radius:8px"></iframe>'
+                    : '<div id="zap-lupa-rolo" style="max-width:90vw;max-height:72vh;overflow:auto;border-radius:8px;background:#000">' +
+                      '<img src="' + u + '" onclick="zapGirarZoom()" title="clique para aproximar" ' +
+                      'style="display:block;' + (zapZoom === 1
+                          ? 'max-width:88vw;max-height:64vh;object-fit:contain;margin:0 auto;'
+                          : 'height:' + alt + 'vh;max-width:none;width:auto;') +
+                      'cursor:' + (zapZoom === 1 ? 'zoom-in' : (zapZoom >= 4 ? 'zoom-out' : 'zoom-in')) + '"></div>';
         const botao = q => '<button onclick="zapPorDestino(\'' + q + '\')" style="border:2px solid ' +
             ZAP_DEST[q].cor + ';background:' + (atual === q ? ZAP_DEST[q].cor : 'transparent') +
             ';color:#fff;padding:9px 14px;border-radius:8px;cursor:pointer;' +
@@ -4707,9 +4743,16 @@
                     (f.dif ? (f.dif > 0 ? ' · ' + f.dif + ' mensagem(ns) DEPOIS desta linha' : ' · ' + (-f.dif) + ' mensagem(ns) ANTES') : ' · na mesma mensagem') +
                     (outroDia ? ' — <b>é de outro dia, pode não ser desta linha</b>' : '') + '</div>';
             })() +
+            (eVideo ? '' : '<div style="display:flex;gap:8px;align-items:center;justify-content:center;color:#cfd8e3;font-size:12px">' +
+               '<span>Zoom:</span>' +
+               [1,2,3,4].map(q => '<button onclick="zapMudarZoom(' + q + ')" style="border:1px solid ' +
+                   (zapZoom === q ? '#fff;background:#fff;color:#33475b' : '#ffffff55;background:transparent;color:#fff') +
+                   ';padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">' +
+                   (q === 1 ? 'cabe na tela' : q + '×') + '</button>').join('') +
+               '<span style="color:#8a97a5">· ou clique na foto · teclas + e −</span></div>') +
             '<div style="color:#cfd8e3;font-size:13px">Para que serve esta foto? (clique de novo para desmarcar)</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
-              botao('comp') + botao('vist') + botao('anun') + botao('apol') + botao('docli') + '</div>' +
+              botao('comp') + botao('vist') + botao('anun') + botao('apol') + botao('doccar') + botao('docli') + '</div>' +
             '<button onclick="zapFotoFora(' + zapLupa.i + ',\'' + nome.replace(/'/g, "\\'") + '\');zapFecharLupa()" ' +
               'style="background:#ffffff22;color:#fff;border:1px solid #ffffff55;padding:7px 14px;border-radius:8px;' +
               'cursor:pointer;font-size:12px">✕ Esta foto não é desta linha</button>' +
@@ -4729,6 +4772,8 @@
         if (ev.key === 'Escape') { ev.preventDefault(); zapFecharLupa(); }
         else if (ev.key === 'ArrowLeft')  { ev.preventDefault(); zapLupaAndar(-1); }
         else if (ev.key === 'ArrowRight') { ev.preventDefault(); zapLupaAndar(1); }
+        else if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); zapMudarZoom(zapZoom + 1); }
+        else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); zapMudarZoom(zapZoom - 1); }
     }
 
     // ===== TAMANHO DAS FOTOS =====
@@ -4766,6 +4811,7 @@
         else a.destino[nome] = 'comp';
         zapAtualizarLinha(i);
         zapAtualizarResumo();
+        zapSalvarRascunho();
     }
 
     // Foto que não é desta linha: ela tira da linha (não apaga nada do computador).
@@ -4775,6 +4821,7 @@
         a.fotosFora[nome] = true;
         if (a.destino) delete a.destino[nome];
         zapAtualizarLinha(i);
+        zapSalvarRascunho();
     }
     function zapFotosVoltar(i) {
         const a = zapAchados[i]; if (!a) return;
@@ -4852,7 +4899,7 @@
     }
 
     // Marcar/desmarcar não redesenha a lista: só atualiza os números em cima.
-    function zapUsar(i, ok) { zapAchados[i].usar = ok; zapAtualizarResumo(); }
+    function zapUsar(i, ok) { zapAchados[i].usar = ok; zapAtualizarResumo(); zapSalvarRascunho(); }
 
     function encherSelectZap() {
         const sel = document.getElementById('zap-carro');
@@ -5063,6 +5110,7 @@
         });
         zapCarroPeloGrupo(msgs);
         agruparZap();
+        zapAplicarRascunho();
         acharLocacoesZap();
         mostrarZap();
     }
@@ -5124,6 +5172,7 @@
         if (c) zapAvisoCarro('🚗 Carro escolhido por você: <b>' + escapaHtml((c.marca || '') + ' ' + (c.cor || '') +
             ' · ' + (c.placa || '')) + '</b>. Refiz as sugestões para ele.');
         agruparZap();
+        zapAplicarRascunho();
         acharLocacoesZap();
         mostrarZap();
     }
@@ -5446,6 +5495,73 @@
             '. Para lançar as parcelas mês a mês, abra o carro na aba 🛡️ Apólice e clique em <b>Ver os lançamentos mensais que faltam</b>.';
     }
 
+    // ===== O RASCUNHO DA CONFERÊNCIA =====
+    // Ela confere 200 linhas de uma vez. Se fechar a página antes de gravar, perdia tudo.
+    // Agora cada clique guarda um rascunho NO CARRO (banco), e quando ela abrir a mesma pasta
+    // de novo eu devolvo tudo: o que estava marcado, a natureza, o cliente, a forma de
+    // pagamento, as fotos escolhidas e as fotos que ela tirou da linha.
+    let zapRascunhoTimer = null, zapRascunhoInfo = '';
+    function zapChaveLinha(a) {
+        return (a.iso || '') + '|' + a.gasto + '|' + String(a.obs || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+    function zapSalvarRascunho(agora) {
+        if (zapRascunhoTimer) clearTimeout(zapRascunhoTimer);
+        const guardar = () => {
+            const c = carroDoZap();
+            if (!c || !zapAchados.length) return;
+            const linhas = {};
+            zapAchados.forEach(a => {
+                const d = a.destino && Object.keys(a.destino).length ? a.destino : null;
+                const fo = a.fotosFora ? Object.keys(a.fotosFora) : [];
+                const item = {u: a.usar ? 1 : 0};
+                if (a.tipoTravado) item.t = a.tipo;
+                if (a.clienteTravado && a.cliente) item.c = a.cliente;
+                if (a.forma) item.fm = a.forma;
+                if (d) item.d = d;
+                if (fo.length) item.fo = fo;
+                linhas[zapChaveLinha(a)] = item;
+            });
+            c.zapRascunho = {quando: new Date().toISOString(), n: zapAchados.length, linhas};
+            saveData();
+            const el = document.getElementById('zap-rascunho-aviso');
+            if (el) el.innerHTML = '💾 <b>Rascunho guardado</b> — o que você já marcou está salvo no carro. ' +
+                'Pode fechar a página: quando abrir a pasta de novo, eu devolvo tudo.';
+        };
+        if (agora) guardar(); else zapRascunhoTimer = setTimeout(guardar, 2500);
+    }
+    function zapAplicarRascunho() {
+        zapRascunhoInfo = '';
+        const c = carroDoZap();
+        const r = c && c.zapRascunho;
+        if (!r || !r.linhas) return;
+        let voltaram = 0, fotos = 0;
+        zapAchados.forEach(a => {
+            const it = r.linhas[zapChaveLinha(a)];
+            if (!it) return;
+            let mudou = false;
+            if (it.t) { a.tipo = it.t; a.tipoTravado = true; mudou = true; }
+            if (it.c) { a.cliente = it.c; a.clienteTravado = true; mudou = true; }
+            if (it.fm) { a.forma = it.fm; mudou = true; }
+            if (it.d) { a.destino = Object.assign({}, it.d); fotos += Object.keys(it.d).length; mudou = true; }
+            if (it.fo && it.fo.length) { a.fotosFora = {}; it.fo.forEach(n => { a.fotosFora[n] = true; }); mudou = true; }
+            if (it.u !== undefined && (it.u ? 1 : 0) !== (a.usar ? 1 : 0)) { a.usar = !!it.u; mudou = true; }
+            if (mudou) voltaram++;
+        });
+        if (voltaram) zapRascunhoInfo = '↩️ <b>Voltei ' + voltaram + ' linha(s)</b> que você já tinha conferido' +
+            (fotos ? ' e <b>' + fotos + '</b> foto(s) escolhida(s)' : '') +
+            ' (rascunho de ' + escapaHtml(dataBonitaIso((r.quando || '').slice(0, 10))) + ').';
+    }
+    function zapApagarRascunho() {
+        const c = carroDoZap();
+        if (!c || !c.zapRascunho) return;
+        if (!confirm('Esquecer o rascunho deste carro? O que você marcou na tela continua marcado — só apago a cópia guardada.')) return;
+        delete c.zapRascunho;
+        saveData();
+        const el = document.getElementById('zap-rascunho-aviso');
+        if (el) el.innerHTML = '🗑️ Rascunho apagado.';
+    }
+
     function zapHtmlAbas() {
         const conta = t => zapVivas().filter(a => a.tipo === t).length;
         const aba = (id, txt, q) =>
@@ -5615,6 +5731,12 @@
                <b>dinheiro ou Zelle, sem comprovante</b> — isso é normal e não atrapalha. Diga só <b>como pagou</b>
                na coluna do lado, que fica registrado mesmo sem foto.</div>` : ''}
             ${zapHtmlTamanho()}
+            <div id="zap-rascunho-aviso" style="margin-top:8px;font-size:12px;color:#33475b;background:#f3faf5;
+                 border:1px solid #cfe8d8;border-radius:6px;padding:7px 10px">
+              ${zapRascunhoInfo || '💾 Eu guardo sozinha o que você vai marcando — pode fechar a página e voltar depois.'}
+              <a href="#" onclick="zapSalvarRascunho(true);return false" style="margin-left:6px">guardar agora</a> ·
+              <a href="#" onclick="zapApagarRascunho();return false" style="color:#7b8794">esquecer o rascunho</a>
+            </div>
 
             <div id="zap-rolagem" style="max-height:440px;overflow:auto;margin-top:10px"><table class="mini-table">
               <thead><tr><th style="width:34px">Usar</th><th style="width:100px">Data</th>
@@ -5679,6 +5801,7 @@
         zapAchados[i].tipo = t;
         zapAchados[i].tipoTravado = true;                 // não deixo minha regra desfazer a escolha dela
         zapAchados[i].usar = t !== 'nada';
+        zapSalvarRascunho();
         if (['cobrar','dano','desconto','recebido'].includes(t) && !zapAchados[i].cliente) {
             const d = donoDaLinha(carroDoZap(), zapAchados[i]);
             if (d) { zapAchados[i].cliente = d.nome; zapAchados[i].tel = d.tel; zapAchados[i].como = d.como; }
@@ -5751,7 +5874,7 @@
         }));
         if (!usar.length && !tarefas.length)
             return alert('Nenhuma linha marcada e nenhuma foto escolhida.');
-        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0, nDoc = 0, nApol = 0;
+        let fotosOk = 0, fotosRuins = 0, motivoFoto = '', nAnun = 0, nVist = 0, nDoc = 0, nApol = 0, nDocCar = 0;
         const pessoasTocadas = [], pessoasNovas = [];
         c.fotos = c.fotos || [];
         c.fotosVistoria = c.fotosVistoria || [];
@@ -5779,6 +5902,13 @@
                         const pronta = await encolherSimples(bruta, 1200);  // documento não se marca
                         if (pronta) { c.fotosVistoria.push({nome: t.nome, dia: t.a.dia, foto: pronta});
                                       c.zapFotosUsadas.push(t.dest + '|' + t.nome); nVist++; }
+                    } else if (t.dest === 'doccar') {  // documento DO CARRO: título, registro, smog
+                        const ePdfD = /\.pdf$/i.test(t.nome);
+                        const prontaD = ePdfD ? (bruta.length < 1400000 ? bruta : '') : await encolherSimples(bruta, 1600);
+                        if (prontaD) {
+                            (c.docsCarro = c.docsCarro || []).push({nome: t.nome, dia: t.a.dia, foto: prontaD, pdf: ePdfD || undefined});
+                            c.zapFotosUsadas.push(t.dest + '|' + t.nome); nDocCar++;
+                        } else { fotosRuins++; if (!motivoFoto) motivoFoto = 'o PDF do documento é grande demais para guardar na ficha — guarde como 📎 comprovante'; }
                     } else if (t.dest === 'apol') {   // papel do seguro: fica no bloco 🛡️ Apólice do carro
                         const ePdf = /\.pdf$/i.test(t.nome);
                         const pronta = ePdf ? (bruta.length < 1400000 ? bruta : '') : await encolherSimples(bruta, 1400);
@@ -5885,6 +6015,7 @@
         }
 
         saveData();
+        zapSalvarRascunho(true);
         const linha = (q, txt) => q ? `<li>${q} ${txt}</li>` : '';
         const el = document.getElementById('zap-resultado');
         if (el) el.innerHTML = `<div class="aviso-versao" style="background:#f3faf5;border-color:#cfe8d8">
@@ -5903,6 +6034,7 @@
             ${nAnun ? `<div style="margin-top:6px">📢 <b>${nAnun}</b> foto(s) foram para as <b>fotos do carro</b> (já com a marca d'água) — prontas para o anúncio.</div>` : ''}
             ${nVist ? `<div style="margin-top:6px">🔧 <b>${nVist}</b> foto(s) de <b>vistoria/dano</b> guardadas na ficha do carro, sem marca d'água.</div>` : ''}
             ${nApol ? `<div style="margin-top:6px">🛡️ <b>${nApol}</b> papel(éis) do seguro guardados no bloco <b>🛡️ Apólice</b> do carro.</div>` : ''}
+            ${nDocCar ? `<div style="margin-top:6px">📕 <b>${nDocCar}</b> documento(s) do carro guardados na aba <b>📄 Docs e Notas</b> da ficha do carro.</div>` : ''}
             ${nDoc ? `<div style="margin-top:6px">📄 <b>${nDoc}</b> documento(s) foram para a ficha de: <b>${escapaHtml(pessoasTocadas.join(', '))}</b>.
                ${pessoasNovas.length ? `<br><span style="color:#b8912b">Criei ficha nova para: <b>${escapaHtml(pessoasNovas.join(', '))}</b> — complete o telefone e o resto quando puder.</span>` : ''}</div>` : ''}
             ${c.zapUltimaData ? `<div style="margin-top:6px">⏮ Marquei que este grupo já foi trazido até <b>${escapaHtml(dataBonitaIso(c.zapUltimaData))}</b>. Da próxima vez eu só trago o que for dessa data para a frente.</div>` : ''}
