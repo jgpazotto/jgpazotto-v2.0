@@ -1457,7 +1457,7 @@
     const AREAS = ['carros','carros_dinheiro','fotos','clientes','fornecedores',
                    'imoveis','aluguel','financeiro'];
     // Campos do carro que pertencem a cada área.
-    const CAMPOS_DINHEIRO = ['zapRascunho','gastosLista','pagamentos','balanco','totalGastos','totalRecebidos',
+    const CAMPOS_DINHEIRO = ['zapRascunho','zapGravadas','gastosLista','pagamentos','balanco','totalGastos','totalRecebidos',
                              'saldo','carnes','debitos','valorVenda','entrada','valorCompra',
                              'indenizacaoSeguro','zapUltimaData',
                              'anuncio','fichaAnteriorLocacao','gastosDaPlanilhaAntiga'];
@@ -2909,6 +2909,18 @@
 
             // Guarda o que ja existia: assim campos que esta tela nao conhece
             // (por exemplo gastosDaPlanilhaAntiga) nao se perdem ao salvar.
+            // Multa que a JG pagou e o cliente devolveu: o dinheiro volta para o caixa.
+            let devolucoes = 0;
+            cDebitos.forEach(d => {
+                if (d.jgPagou && d.pago && !d.devolvido) {
+                    const quando = d.pagoEm || new Date().toISOString().slice(0, 10);
+                    lancarNoCaixa('Receita', d.valor, quando,
+                        '🎫 devolução de ' + (d.desc || 'multa') + ' · ' + (placa || marca) +
+                        (d.cliente ? ' · ' + d.cliente : ''));
+                    d.devolvido = true; d.pagoEm = quando; devolucoes++;
+                }
+            });
+
             const anterior = editingId ? (database.carros.find(x => x.id === editingId) || {}) : {};
 
             const novo = {
@@ -2955,7 +2967,9 @@
             }
             saveData();
             closeModal('carroModal');
-            alert('✅ Carro salvo com sucesso!');
+            alert('✅ Carro salvo com sucesso!' + (devolucoes
+                ? '\n\n💰 ' + devolucoes + ' multa(s) que a JG tinha pagado foram marcadas como devolvidas pelo cliente — o dinheiro voltou para o 💰 Financeiro.'
+                : ''));
             editingId = null;
         } catch (err) {
             alert('❌ Erro ao salvar: ' + err.message);
@@ -3565,7 +3579,10 @@
         if (!tb) return;
         tb.innerHTML = cDebitos.map((d, i) => `<tr class="${d.pago ? 'linha-pago' : ''}">
             <td><input value="${(d.dia||'').replace(/"/g,'&quot;')}" onchange="cDebitos[${i}].dia=this.value"></td>
-            <td><input value="${(d.desc||'').replace(/"/g,'&quot;')}" style="width:82%" onchange="cDebitos[${i}].desc=this.value">${(d.fotos||[]).length ? ` <a href="#" title="foto do WhatsApp" onclick="verFotoGuardada('${d.fotos[0].path}');return false" style="text-decoration:none">📎${d.fotos.length}</a>` : ''}</td>
+            <td><input value="${(d.desc||'').replace(/"/g,'&quot;')}" style="width:82%" onchange="cDebitos[${i}].desc=this.value">
+                ${d.jgPagou ? `<div style="font-size:10px;color:${d.devolvido ? '#1e8449' : '#a15c00'}">${d.devolvido
+                    ? '💰 a JG pagou e o cliente já devolveu'
+                    : '🏢 a JG pagou esta conta — marque <b>Pago</b> quando o cliente devolver, que eu devolvo o dinheiro ao caixa'}</div>` : ''}${(d.fotos||[]).length ? ` <a href="#" title="foto do WhatsApp" onclick="verFotoGuardada('${d.fotos[0].path}');return false" style="text-decoration:none">📎${d.fotos.length}</a>` : ''}</td>
             <td><input value="${escapaHtml(d.cliente||'')}" list="lista-de-clientes" placeholder="quem deve"
                  onchange="cDebitos[${i}].cliente=this.value"></td>
             <td><input type="number" step="0.01" value="${d.valor||''}" onchange="cDebitos[${i}].valor=parseFloat(this.value)||0;renderDebitos()"></td>
@@ -5349,6 +5366,9 @@
         const corte = (carroZ && carroZ.zapUltimaData) || '';
         zapAchados.forEach(a => {
             a.jaImportado = !!(corte && a.iso && a.iso <= corte);
+            // já gravei esta linha exata neste carro? então ela sai da lista de trabalho
+            const jg = carroZ && carroZ.zapGravadas ? carroZ.zapGravadas[zapChaveLinha(a)] : null;
+            a.jaSalva = jg || null;
             const k = zapChave(a);
             if (vistos[k] === undefined) { vistos[k] = a; a.repete = 1; a.datas = [a.dia]; }
             else { a.repetida = true; vistos[k].repete++; vistos[k].datas.push(a.dia); }
@@ -5360,7 +5380,7 @@
                           a.tipo === 'desconto' || a.tipo === 'recebido')
                        ? donoDaLinha(carro, a) : null;
             if (dono && !a.clienteTravado) { a.cliente = dono.nome; a.tel = dono.tel; a.como = dono.como; }
-            a.usar = a.tipo !== 'nada' && !a.repetida && !a.jaImportado;
+            a.usar = a.tipo !== 'nada' && !a.repetida && !a.jaImportado && !a.jaSalva;
         });
         zapParecidas();
     }
@@ -5418,6 +5438,12 @@
 
     // Como o cliente pagou. Muita entrada vem em dinheiro ou Zelle e NÃO tem comprovante —
     // ela falou isso; então a forma é escrita na mão e a falta de foto não é problema.
+    // A multa tem DUAS vidas: a dívida do cliente (Cobrança) e o dinheiro do caixa.
+    // Decidido com ela em 15/09: o dinheiro anda no FINANCEIRO, não no gasto do carro —
+    // a culpa é do inquilino, não do veículo. Quem não pagar fica em aberto na Cobrança.
+    const ZAP_QUEM_PAGOU = [['jg', '🏢 A JG pagou (sai do caixa)'],
+                            ['ninguem', '⏳ Ainda não foi paga'],
+                            ['cliente', '🙋 O cliente pagou direto']];
     const ZAP_FORMAS = [['', 'como pagou?'], ['dinheiro', '💵 Dinheiro'], ['zelle', '📱 Zelle'],
                         ['deposito', '🏦 Depósito / transferência'], ['cartao', '💳 Cartão'],
                         ['cheque', '🧾 Cheque'], ['outro', '❓ Não sei']];
@@ -5501,6 +5527,22 @@
     // de novo eu devolvo tudo: o que estava marcado, a natureza, o cliente, a forma de
     // pagamento, as fotos escolhidas e as fotos que ela tirou da linha.
     let zapRascunhoTimer = null, zapRascunhoInfo = '';
+    // O caixa da empresa. A multa que a JG paga sai daqui, e volta quando o cliente devolve.
+    function lancarNoCaixa(tipo, valor, iso, desc, categoria) {
+        database.financeiro = database.financeiro || [];
+        const data = iso || new Date().toISOString().slice(0, 10);
+        const v = Math.abs(Number(valor) || 0);
+        if (!v) return null;
+        // não lanço duas vezes a mesma coisa no mesmo dia
+        const igual = database.financeiro.find(f => f.data === data && f.desc === desc &&
+                                                    Math.abs(Number(f.valor) || 0) === v && f.tipo === tipo);
+        if (igual) return igual;
+        const t = {id: Date.now() + Math.floor(Math.random() * 999), data, desc, tipo,
+                   categoria: categoria || 'Veículo', valor: v, origem: 'multa'};
+        database.financeiro.push(t);
+        return t;
+    }
+
     function zapChaveLinha(a) {
         return (a.iso || '') + '|' + a.gasto + '|' + String(a.obs || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -5518,6 +5560,7 @@
                 if (a.tipoTravado) item.t = a.tipo;
                 if (a.clienteTravado && a.cliente) item.c = a.cliente;
                 if (a.forma) item.fm = a.forma;
+                if (a.quemPagou) item.qp = a.quemPagou;
                 if (d) item.d = d;
                 if (fo.length) item.fo = fo;
                 linhas[zapChaveLinha(a)] = item;
@@ -5543,6 +5586,7 @@
             if (it.t) { a.tipo = it.t; a.tipoTravado = true; mudou = true; }
             if (it.c) { a.cliente = it.c; a.clienteTravado = true; mudou = true; }
             if (it.fm) { a.forma = it.fm; mudou = true; }
+            if (it.qp) { a.quemPagou = it.qp; mudou = true; }
             if (it.d) { a.destino = Object.assign({}, it.d); fotos += Object.keys(it.d).length; mudou = true; }
             if (it.fo && it.fo.length) { a.fotosFora = {}; it.fo.forEach(n => { a.fotosFora[n] = true; }); mudou = true; }
             if (it.u !== undefined && (it.u ? 1 : 0) !== (a.usar ? 1 : 0)) { a.usar = !!it.u; mudou = true; }
@@ -5563,14 +5607,16 @@
     }
 
     function zapHtmlAbas() {
-        const conta = t => zapVivas().filter(a => a.tipo === t).length;
+        const conta = t => zapVivas().filter(a => a.tipo === t && !a.jaSalva).length;
         const aba = (id, txt, q) =>
             '<button class="btn btn-small" onclick="zapVerFiltro(\'' + id + '\')" style="' +
             (zapFiltro === id ? 'background:#b8912b;color:#fff' : 'background:#eef2f7;color:#33475b') +
             '">' + txt + ' (' + q + ')</button>';
-        const antigas = zapAchados.filter(a => a.jaImportado).length;
+        const antigas = zapAchados.filter(a => a.jaImportado && !a.jaSalva).length;
+        const salvas  = zapAchados.filter(a => a.jaSalva).length;
         return ZAP_ORDEM.map(t => aba(t, TIPOS[t].rot, conta(t))).join('') +
-               aba('repetida', '🔁 Repetidas', zapAchados.filter(a => a.repetida).length) +
+               (salvas ? aba('salvas', '✅ Já está no sistema', salvas) : '') +
+               aba('repetida', '🔁 Repetidas', zapAchados.filter(a => a.repetida && !a.jaSalva).length) +
                (antigas ? aba('antigas', '⏮ Já importadas antes', antigas) : '') +
                (zapLocacoes.length ? aba('locacoes', '🔑 Quem ficou com o carro', zapLocacoes.length) : '') +
                aba('tudo', 'Tudo', zapAchados.length);
@@ -5687,9 +5733,10 @@
 
         const lista = zapAchados.map((a, i) => ({a, i}))
             .filter(({a}) => zapFiltro === 'tudo' ? true
-                           : zapFiltro === 'repetida' ? a.repetida
-                           : zapFiltro === 'antigas' ? a.jaImportado
-                           : (a.tipo === zapFiltro && !a.repetida && !a.jaImportado));
+                           : zapFiltro === 'salvas' ? !!a.jaSalva
+                           : zapFiltro === 'repetida' ? (a.repetida && !a.jaSalva)
+                           : zapFiltro === 'antigas' ? (a.jaImportado && !a.jaSalva)
+                           : (a.tipo === zapFiltro && !a.repetida && !a.jaImportado && !a.jaSalva));
 
         const precisaDeCliente = t => ['cobrar','dano','desconto','recebido'].includes(t);
 
@@ -5746,8 +5793,8 @@
                 const selo = a.repete > 1 && !a.repetida
                     ? ` <a href="#" onclick="zapMostrarDatas(${i});return false"
                          style="font-size:11px;color:#b8912b;text-decoration:none">🔁 ${a.repete}×</a>` : '';
-                return `<tr style="background:${a.jaImportado ? '#fbfbfb' : (TIPOS[a.tipo] ? TIPOS[a.tipo].cor : '')};
-                            ${a.jaImportado ? 'opacity:.65' : ''}">
+                return `<tr style="background:${a.jaSalva ? '#eaf5ee' : (a.jaImportado ? '#fbfbfb' : (TIPOS[a.tipo] ? TIPOS[a.tipo].cor : ''))};
+                            ${a.jaImportado && !a.jaSalva ? 'opacity:.65' : ''}">
                 <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''}
                     onchange="zapUsar(${i}, this.checked)"></td>
                 <td><input value="${escapaHtml(a.dia)}" onchange="zapAchados[${i}].dia=this.value"></td>
@@ -5755,7 +5802,8 @@
                     onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;agruparZap();mostrarZap()"></td>
                 <td><input value="${escapaHtml(a.obs)}" style="width:74%"
                     onchange="zapAchados[${i}].obs=this.value">${selo}
-                    ${a.jaImportado ? '<div style="font-size:10px;color:#7b8794">⏮ já importada antes</div>' : ''}
+                    ${a.jaSalva ? `<div style="font-size:11px;color:#1e8449">✅ <b>já está no sistema</b> — gravada em ${escapaHtml(dataBonitaIso(a.jaSalva.em || ''))}${a.jaSalva.onde ? ' como ' + escapaHtml(TIPOS[a.jaSalva.onde] ? TIPOS[a.jaSalva.onde].rot : a.jaSalva.onde) : ''}. Não precisa fazer de novo.</div>` : ''}
+                    ${a.jaImportado && !a.jaSalva ? '<div style="font-size:10px;color:#7b8794">⏮ já importada antes</div>' : ''}
                     ${a.talvezCliente ? '<div style="font-size:10px;color:#b8912b">⚠️ gasolina/limpeza costuma ser do inquilino — confira</div>' : ''}
                     ${a.parecida ? `<div style="font-size:10px;color:#b8912b">🔎 <b>mesmo valor e palavra parecida</b> em ${escapaHtml(a.parecida.join(' · '))} — é o mesmo serviço ou são dois? Olhe as fotos.</div>` : ''}
                     ${zapTirinha(a, i)}</td>
@@ -5767,9 +5815,13 @@
                          placeholder="de quem?" style="width:100%"
                          onchange="zapAchados[${i}].cliente=this.value;zapAchados[${i}].clienteTravado=true">
                        ${a.como ? `<div style="font-size:10px;color:#7b8794">${a.como}</div>` : ''}
-                       ${a.tipo === 'recebido' ? `<select onchange="zapAchados[${i}].forma=this.value"
+                       ${a.tipo === 'recebido' ? `<select onchange="zapAchados[${i}].forma=this.value;zapSalvarRascunho()"
                             style="margin-top:4px;width:100%;font-size:12px">
                             ${ZAP_FORMAS.map(f => `<option value="${f[0]}" ${(a.forma || '') === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
+                          </select>` : ''}
+                       ${(a.tipo === 'cobrar' || a.tipo === 'dano') ? `<select onchange="zapAchados[${i}].quemPagou=this.value;zapSalvarRascunho()"
+                            style="margin-top:4px;width:100%;font-size:12px" title="quem pagou esta conta?">
+                            ${ZAP_QUEM_PAGOU.map(f => `<option value="${f[0]}" ${(a.quemPagou || 'jg') === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
                           </select>` : ''}`
                     : '<span style="color:#c3ccd6">—</span>'}</td>
               </tr>`; }).join('') ||
@@ -5957,7 +6009,16 @@
         const jaPag   = {}; c.pagamentos.forEach(x => jaPag[(x.dia||'') + '|' + (x.valor||0)] = true);
 
         const n = {gasto:0, jg:0, seguro:0, cobrar:0, dano:0, desconto:0, recebido:0, fornecedor:0};
-        let repetidos = 0, semDono = 0;
+        // o que for gravado agora não volta mais para a lista de trabalho
+        const hojeISO = new Date().toISOString().slice(0, 10);
+        const gravadasAgora = {};
+        const marcarGravada = a => {
+            const k = zapChaveLinha(a);
+            gravadasAgora[k] = {em: hojeISO, onde: a.tipo};
+            a.jaSalva = gravadasAgora[k];
+            a.usar = false;
+        };
+        let repetidos = 0, semDono = 0, nCaixa = 0;
 
         usar.forEach(a => {
             const chave = (a.dia || '') + '|' + a.gasto;
@@ -5968,7 +6029,7 @@
                         assumidoPelaJG: a.tipo === 'jg' || undefined,
                         fornecedor: a.tipo === 'fornecedor' || undefined,
                         fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
-                    jaGasto[chave] = true; n[a.tipo]++; break;
+                    jaGasto[chave] = true; n[a.tipo]++; marcarGravada(a); break;
                 }
                 case 'seguro': {
                     if (jaGasto[chave]) { repetidos++; return; }
@@ -5977,16 +6038,26 @@
                     c.gastosLista.push({ano: a.ano, dia: a.dia, obs: '🛡️ ' + a.obs, gasto: a.gasto, recebido: 0,
                         seguro: true, seguroMes: mesSeg || undefined,
                         fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
-                    jaGasto[chave] = true; n.seguro++; break;
+                    jaGasto[chave] = true; n.seguro++; marcarGravada(a); break;
                 }
                 case 'cobrar': case 'dano': {
                     if (jaDeb[chave]) { repetidos++; return; }
                     if (!a.cliente) semDono++;
-                    c.debitos.push({dia: a.dia, iso: a.iso, desc: a.obs, valor: a.gasto, pago: false,
+                    const quem = a.quemPagou || 'jg';
+                    c.debitos.push({dia: a.dia, iso: a.iso, desc: a.obs, valor: a.gasto,
+                                    pago: quem === 'cliente', pagoEm: quem === 'cliente' ? (a.iso || '') : undefined,
                                     cliente: a.cliente || '', tel: a.tel || '',
+                                    jgPagou: quem === 'jg' || undefined,
+                                    devolvido: quem === 'cliente' || undefined,
                                     fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined,
                                     natureza: a.tipo === 'dano' ? 'Dano do veículo' : 'Multa / pedágio'});
-                    jaDeb[chave] = true; n[a.tipo]++; break;
+                    if (quem === 'jg') {
+                        lancarNoCaixa('Despesa', a.gasto, a.iso,
+                            (a.tipo === 'dano' ? '💥 ' : '🎫 ') + a.obs + ' · ' + (c.placa || c.marca || '') +
+                            (a.cliente ? ' · a cobrar de ' + a.cliente : ''));
+                        nCaixa++;
+                    }
+                    jaDeb[chave] = true; n[a.tipo]++; marcarGravada(a); break;
                 }
                 case 'desconto': {
                     if (jaDeb[chave]) { repetidos++; return; }
@@ -5994,14 +6065,14 @@
                     c.debitos.push({dia: a.dia, iso: a.iso, desc: '🎁 ' + a.obs, valor: -Math.abs(a.gasto),
                                     pago: false, cliente: a.cliente || '', tel: a.tel || '',
                                     natureza: 'Desconto ao cliente'});
-                    jaDeb[chave] = true; n.desconto++; break;
+                    jaDeb[chave] = true; n.desconto++; marcarGravada(a); break;
                 }
                 case 'recebido': {
                     if (jaPag[chave]) { repetidos++; return; }
                     c.pagamentos.push({dia: a.dia, iso: a.iso, obs: a.obs, valor: a.gasto,
                                        cliente: a.cliente || '', forma: a.forma || '',
                                        fotos: (a.arquivos && a.arquivos.length) ? a.arquivos : undefined});
-                    jaPag[chave] = true; n.recebido++; break;
+                    jaPag[chave] = true; n.recebido++; marcarGravada(a); break;
                 }
             }
         });
@@ -6014,6 +6085,7 @@
             if (!c.zapUltimaData || ultima > c.zapUltimaData) c.zapUltimaData = ultima;
         }
 
+        c.zapGravadas = Object.assign({}, c.zapGravadas || {}, gravadasAgora);
         saveData();
         zapSalvarRascunho(true);
         const linha = (q, txt) => q ? `<li>${q} ${txt}</li>` : '';
@@ -6027,6 +6099,7 @@
               ${linha(n.seguro, 'pagamento(s) de seguro na aba 💸 Gastos — o mês já fica marcado, o lembrete não repete')}
               ${linha(n.cobrar, 'multa(s)/pedágio na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
               ${linha(n.dano, 'dano(s) na aba ⚠️ Débitos — já entram na 🔔 Cobrança')}
+              ${linha(nCaixa, 'saída(s) no 💰 Financeiro — o que a JG pagou e vai cobrar do cliente')}
               ${linha(n.desconto, 'desconto(s) lançados como crédito do cliente')}
               ${linha(n.recebido, 'recebimento(s) na aba 💰 Pagamentos')}
             </ul>
@@ -6042,12 +6115,16 @@
                Os lançamentos foram gravados do mesmo jeito — só as fotos ficaram de fora.
                ${motivoFoto ? `<br><small>Motivo: ${escapaHtml(motivoFoto)}</small>` : ''}</div>` : ''}
             ${repetidos ? `<div style="margin-top:6px">${repetidos} linha(s) já estavam lá e eu não repeti.</div>` : ''}
+            ${Object.keys(gravadasAgora).length ? `<div style="margin-top:8px">✅ Estas <b>${Object.keys(gravadasAgora).length}</b> linhas
+               <b>saem da lista</b> e ficam guardadas na aba <b>✅ Já está no sistema</b> — não precisa conferir de novo, hoje nem semana que vem.
+               <div style="margin-top:8px"><button class="btn" onclick="mostrarZap()">▶️ Voltar para a lista e continuar de onde parei</button></div></div>` : ''}
             ${semDono ? `<div class="aviso-pend" style="margin-top:8px">⚠️ <b>${semDono}</b> cobrança(s)
                ficaram <b>sem nome</b>. Elas entram na Cobrança como do dono do carnê. Para acertar,
                cadastre os períodos na aba <b>🔑 Quem ficou com o carro</b> e escreva o nome no débito.</div>` : ''}
             <button class="btn btn-small" style="margin-top:8px" onclick="openCarroModal(${c.id})">Abrir o carro</button>
         </div>`;
-        zapAchados = [];
+        // ANTES eu apagava a lista aqui e ela tinha que abrir a pasta de novo para continuar.
+        // Agora a lista FICA: o que foi gravado vai para a aba ✅ e ela segue de onde parou.
     }
 
     // ===== COBRANÇA =====
