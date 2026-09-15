@@ -559,6 +559,32 @@
                         <button onclick="filtrarCobranca(event,'debitos')">Só débitos (multa, FasTrak...)</button>
                     </div>
                     <div id="cob-aviso"></div>
+
+                    <div class="vd-card" style="background:#fffdf5;border:1px solid #f0dfae;margin-bottom:12px">
+                        <b>🎫 Trazer multas e pedágios (FasTrak) e casar com quem estava com o carro</b>
+                        <div style="font-size:13px;color:#5a6b7a;margin:6px 0 10px">
+                          Solte aqui o <b>relatório do FasTrak</b> (arquivo .csv ou .txt) ou <b>cole a lista</b> de
+                          qualquer jeito — eu procuro <b>data + valor</b> em cada linha e digo <b>quem estava com o
+                          carro naquele dia</b>. Você confere, e o que o cliente não pagou vira <b>dívida dele</b> aqui na Cobrança.
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+                          <span style="font-size:13px">Carro:</span>
+                          <select id="cob-carro" style="padding:8px;border:1px solid var(--border);border-radius:5px;min-width:250px"></select>
+                          <input type="file" id="cob-arquivo" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="cobLerArquivo(event)">
+                          <button class="btn btn-small" onclick="document.getElementById('cob-arquivo').click()">📂 Escolher o arquivo do FasTrak</button>
+                          <button class="btn btn-small" onclick="cobAbrirColar()">📋 Colar a lista na mão</button>
+                        </div>
+                        <div id="cob-colar-box" style="display:none;margin-top:10px">
+                          <textarea id="cob-colar" rows="6" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px"
+                            placeholder="Cole aqui, uma por linha. Ex.:&#10;11/14/2023  Bay Bridge  $7.00&#10;11/24/2023  Bay Bridge  $7.00"></textarea>
+                          <button class="btn btn-small" style="margin-top:6px" onclick="cobLerColado()">🔎 Ler esta lista</button>
+                        </div>
+                        <div id="cob-import"></div>
+                    </div>
+
+                    <div style="margin-bottom:10px">
+                      <button class="btn btn-small" onclick="baixarPlanilhaDevedores()">📥 Baixar a planilha de devedores (Excel/CSV)</button>
+                    </div>
                     <div id="cob-lista"></div>
                     <div id="cob-encerrados"></div>
                 </div>
@@ -6210,6 +6236,281 @@
     }
 
     // ===== COBRANÇA =====
+    // ===== 🎫 MULTAS E PEDÁGIOS: CASAR CADA COBRANÇA COM QUEM ESTAVA COM O CARRO =====
+    // A multa chega em papel e o FasTrak vem numa planilha com várias linhas e um total no fim.
+    // O que manda é a DATA: quem estava com o carro naquele dia é quem paga. O que o cliente
+    // não devolveu fica como dívida dele aqui na Cobrança.
+    let cobLinhas = [];
+    const COB_SOMA = /\b(total|totals?|balance|saldo|amount due|subtotal|sum)\b/i;
+    const COB_PAGO = /\b(pago|paid|payment|pagamento|cr[ée]dito|credit|received|recebido)\b/i;
+
+    function cobAbrirColar() {
+        const b = document.getElementById('cob-colar-box');
+        if (b) b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    }
+    function cobEncherCarros() {
+        const sel = document.getElementById('cob-carro');
+        if (!sel) return;
+        const antes = sel.value;
+        sel.innerHTML = (database.carros || []).map(c =>
+            `<option value="${c.id}">${escapaHtml((c.marca || '') + ' ' + (c.cor || '') + (c.placa ? ' · ' + c.placa : ''))}</option>`).join('');
+        if (antes) sel.value = antes;
+    }
+    function cobCarro() {
+        const sel = document.getElementById('cob-carro');
+        return (database.carros || []).find(c => String(c.id) === String(sel && sel.value)) || null;
+    }
+    function cobLerArquivo(ev) {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = e => { cobParsear(String(e.target.result || ''), f.name); ev.target.value = ''; };
+        r.readAsText(f);
+    }
+    function cobLerColado() {
+        const t = document.getElementById('cob-colar');
+        cobParsear(t ? t.value : '', 'lista colada');
+    }
+
+    // Lê o relatório. Dois caminhos:
+    // 1) CSV de verdade (tem cabeçalho com "amount"): leio por COLUNA — é o jeito certo,
+    //    senão o "Balance" do FasTrak entra como se fosse o valor do pedágio.
+    // 2) Qualquer outro texto: procuro data + valor na linha. Com duas datas na mesma linha
+    //    (postagem e transação), vale a MAIS ANTIGA — é o dia em que o carro passou.
+    const COB_DATA = /(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/g;
+    const COB_VALOR = /-?\$?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})/;
+    function cobIsoDe(txt) {
+        COB_DATA.lastIndex = 0;
+        const achadas = [];
+        let m;
+        while ((m = COB_DATA.exec(String(txt || '')))) {
+            let ano, mes, dia;
+            if (m[1]) { ano = +m[1]; mes = +m[2]; dia = +m[3]; }
+            else {
+                let a = +m[4], b = +m[5]; ano = +m[6];
+                if (ano < 100) ano += 2000;
+                if (a > 12) { dia = a; mes = b; } else { mes = a; dia = b; }   // EUA: mês primeiro
+            }
+            if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31 && ano > 2000 && ano < 2100)
+                achadas.push(ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0'));
+        }
+        achadas.sort();
+        return achadas[0] || '';
+    }
+    function cobLimparDesc(txt) {
+        return String(txt || '')
+            .replace(COB_DATA, ' ')
+            .replace(/-?\$?\s*\d{1,3}(?:,\d{3})*\.\d{2}/g, ' ')
+            .replace(/\b\d{1,2}:\d{2}(:\d{2})?\s*([AaPp][Mm])?\b/g, ' ')
+            .replace(/\b\d{1,4}\b/g, ' ')
+            .replace(/[;,|\t"]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    }
+    function cobDiaBonito(iso) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+        return m ? (+m[3]) + ' ' + MES_CURTO[(+m[2]) - 1] + '. ' + m[1].slice(2) : '';
+    }
+    function cobParsear(txt, origem) {
+        const linhas = String(txt || '').split(/\r?\n/).filter(l => l.trim());
+        const cruas = [];
+        // ---- caminho 1: CSV com cabeçalho
+        const sep = l => (l.split(';').length > l.split(',').length ? ';' : (l.split('\t').length > 2 ? '\t' : ','));
+        const cabIdx = linhas.findIndex(l => /amount|valor/i.test(l) && l.split(/[,;\t]/).length >= 3);
+        let lidoPorColuna = false;
+        if (cabIdx >= 0) {
+            const d = sep(linhas[cabIdx]);
+            const cab = linhas[cabIdx].split(d).map(x => x.replace(/"/g, '').trim().toLowerCase());
+            const iVal = cab.findIndex(x => /^amount|valor|toll|charge|debit/.test(x));
+            let iData = cab.findIndex(x => /transaction date|trans.? date|date of|data/.test(x));
+            if (iData < 0) iData = cab.findIndex(x => /date|data/.test(x));
+            const iDesc = cab.findIndex(x => /plaza|location|descri|detail|entry|agency/.test(x));
+            if (iVal >= 0 && iData >= 0) {
+                lidoPorColuna = true;
+                linhas.slice(cabIdx + 1).forEach(l => {
+                    const col = l.split(d).map(x => x.replace(/"/g, '').trim());
+                    if (col.length < 2) return;
+                    const iso = cobIsoDe(col[iData] || l);
+                    const mv = COB_VALOR.exec(col[iVal] || '');
+                    if (!iso || !mv) return;
+                    const valor = Math.round(parseFloat(mv[1].replace(/,/g, '')) * 100) / 100;
+                    if (!valor) return;
+                    const negativo = /-/.test(col[iVal]) || COB_PAGO.test(l);
+                    cruas.push({iso, dia: cobDiaBonito(iso),
+                                desc: (iDesc >= 0 ? col[iDesc] : '') || cobLimparDesc(l) || 'Pedágio',
+                                valor, soma: COB_SOMA.test(l), jaPago: negativo});
+                });
+            }
+        }
+        // ---- caminho 2: texto solto
+        if (!lidoPorColuna) {
+            linhas.forEach(l => {
+                const linha = l.replace(/"/g, ' ').replace(/\s+/g, ' ').trim();
+                const iso = cobIsoDe(linha);
+                const mv = COB_VALOR.exec(linha);
+                if (!iso || !mv) return;
+                const valor = Math.round(parseFloat(mv[1].replace(/,/g, '')) * 100) / 100;
+                if (!valor) return;
+                const negativo = /-\s*\$?\s*[\d,]+\.\d{2}/.test(linha) || COB_PAGO.test(linha);
+                cruas.push({iso, dia: cobDiaBonito(iso), desc: cobLimparDesc(linha) || 'Pedágio / multa',
+                            valor, soma: COB_SOMA.test(linha), jaPago: negativo});
+            });
+        }
+        const c = cobCarro();
+        // dois pedágios iguais no mesmo dia acontecem de verdade (ida e volta da ponte).
+        // Então conto quantos JÁ existem e marco só essa quantidade como repetida.
+        const jaTem = {};
+        if (c) (c.debitos || []).forEach(d => {
+            const k = (d.iso || '') + '|' + Number(d.valor);
+            jaTem[k] = (jaTem[k] || 0) + 1;
+        });
+        cobLinhas = cruas.map(x => {
+            const quem = c ? (clienteNaData(c, x.iso) || {}) : {};
+            const k = x.iso + '|' + x.valor;
+            const repetida = jaTem[k] > 0;
+            if (repetida) jaTem[k]--;
+            return Object.assign(x, {
+                cliente: quem.nome || '', tel: quem.tel || '',
+                usar: !x.soma && !x.jaPago && !repetida,
+                jaExiste: repetida
+            });
+        });
+        cobMostrarImport(origem);
+    }
+
+    function cobMostrarImport(origem) {
+        const el = document.getElementById('cob-import');
+        if (!el) return;
+        const c = cobCarro();
+        if (!cobLinhas.length) {
+            el.innerHTML = '<div class="aviso-pend" style="margin-top:10px">Não achei nenhuma linha com <b>data e valor</b> nesse arquivo. ' +
+                'Confira se é o relatório certo, ou cole a lista na mão.</div>';
+            return;
+        }
+        const usadas = cobLinhas.filter(x => x.usar);
+        const total = usadas.reduce((s, x) => s + x.valor, 0);
+        const semDono = usadas.filter(x => !x.cliente).length;
+        const porPessoa = {};
+        usadas.forEach(x => {
+            const k = (x.cliente || '— sem dono —');
+            porPessoa[k] = (porPessoa[k] || 0) + x.valor;
+        });
+        const linha = (x, i) => `<tr style="background:${x.jaExiste ? '#eaf5ee' : (x.soma ? '#f5f5f5' : (x.jaPago ? '#fff8e6' : ''))}">
+            <td style="text-align:center"><input type="checkbox" ${x.usar ? 'checked' : ''} onchange="cobLinhas[${i}].usar=this.checked;cobMostrarImport()"></td>
+            <td>${escapaHtml(x.dia)}</td>
+            <td>${escapaHtml(x.desc)}
+                ${x.jaExiste ? '<div style="font-size:10px;color:#1e8449">✅ já está na conta desta pessoa</div>' : ''}
+                ${x.soma ? '<div style="font-size:10px;color:#7b8794">Σ parece ser o total da planilha — não lanço</div>' : ''}
+                ${x.jaPago && !x.soma ? '<div style="font-size:10px;color:#a15c00">💰 parece pagamento/crédito — confira</div>' : ''}</td>
+            <td class="n">${fmt(x.valor)}</td>
+            <td><input value="${escapaHtml(x.cliente)}" list="lista-de-clientes" placeholder="quem estava com o carro?"
+                 style="width:96%" onchange="cobLinhas[${i}].cliente=this.value;cobMostrarImport()">
+                ${x.cliente ? '' : '<div style="font-size:10px;color:#b42318">sem período cadastrado nessa data</div>'}</td>
+          </tr>`;
+        el.innerHTML = `<div style="margin-top:12px">
+            <div style="font-size:13px;margin-bottom:6px">📄 <b>${cobLinhas.length}</b> linha(s) lidas de <b>${escapaHtml(origem || 'arquivo')}</b>
+              · carro <b>${escapaHtml(c ? ((c.marca || '') + ' ' + (c.placa || '')) : '—')}</b>
+              · marcadas <b>${usadas.length}</b> somando <b>${fmt(total)}</b></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              ${Object.keys(porPessoa).sort((a, b) => porPessoa[b] - porPessoa[a]).map(k =>
+                `<span style="background:#eef2f7;border-radius:14px;padding:4px 11px;font-size:12px">
+                   <b>${escapaHtml(k)}</b> · ${fmt(porPessoa[k])}</span>`).join('')}
+            </div>
+            ${semDono ? `<div class="aviso-pend"><b>${semDono}</b> linha(s) caíram em dia <b>sem ninguém cadastrado</b> com o carro.
+               Escreva o nome na mão, ou cadastre o período na aba 🔑 do carro e leia o arquivo de novo.</div>` : ''}
+            <div style="max-height:360px;overflow:auto"><table class="mini-table">
+              <thead><tr><th style="width:34px">Usar</th><th style="width:100px">Data</th><th>O que é</th>
+                <th style="width:90px">Valor</th><th style="width:230px">De quem é</th></tr></thead>
+              <tbody>${cobLinhas.map(linha).join('')}</tbody></table></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+              <label style="font-size:13px"><input type="checkbox" id="cob-jg-pagou" checked>
+                A JG pagou esta conta (lança a saída no 💰 Financeiro)</label>
+              <button class="btn" onclick="cobGravarImport()">💾 Jogar na conta de cada um (${usadas.length})</button>
+            </div>
+          </div>`;
+    }
+
+    function cobGravarImport() {
+        const c = cobCarro();
+        if (!c) return alert('Escolha o carro.');
+        const usadas = cobLinhas.filter(x => x.usar);
+        if (!usadas.length) return alert('Nenhuma linha marcada.');
+        const jgPagou = (document.getElementById('cob-jg-pagou') || {}).checked;
+        c.debitos = c.debitos || [];
+        let novos = 0, repetidos = 0, total = 0;
+        const datas = [];
+        const jaTem = {};
+        (c.debitos || []).forEach(d => {
+            const k = (d.iso || '') + '|' + Number(d.valor) + '|' + (d.desc || '');
+            jaTem[k] = (jaTem[k] || 0) + 1;
+        });
+        usadas.forEach(x => {
+            const k = x.iso + '|' + x.valor + '|' + x.desc;
+            if (jaTem[k] > 0) { jaTem[k]--; repetidos++; return; }
+            c.debitos.push({dia: x.dia, iso: x.iso, desc: x.desc, valor: x.valor, pago: false,
+                            cliente: x.cliente || '', tel: x.tel || '',
+                            jgPagou: jgPagou || undefined,
+                            natureza: 'Multa / pedágio'});
+            novos++; total += x.valor; datas.push(x.iso);
+        });
+        if (jgPagou && total) {
+            datas.sort();
+            lancarNoCaixa('Despesa', total, datas[datas.length - 1],
+                '🎫 FasTrak/multas ' + (datas[0] === datas[datas.length - 1] ? dataBonitaIso(datas[0])
+                    : dataBonitaIso(datas[0]) + ' a ' + dataBonitaIso(datas[datas.length - 1])) +
+                ' · ' + (c.placa || c.marca || '') + ' · ' + novos + ' cobrança(s)');
+        }
+        c.notas = c.notas || [];
+        c.notas.unshift({data: new Date().toISOString().slice(0, 10),
+            texto: 'Entraram ' + novos + ' multa(s)/pedágio(s) somando ' + fmt(total) +
+                   ', casados com quem estava com o carro em cada data.' + (jgPagou ? ' A JG pagou a conta (saída no Financeiro).' : '')});
+        saveData();
+        cobLinhas = [];
+        const el = document.getElementById('cob-import');
+        if (el) el.innerHTML = `<div class="aviso-versao" style="background:#f3faf5;border-color:#cfe8d8;margin-top:10px">
+            ✅ <b>Pronto.</b> ${novos} cobrança(s) foram para a conta de cada pessoa${repetidos ? ' · ' + repetidos + ' já estavam lá e eu não repeti' : ''}.
+            ${jgPagou && total ? '<br>💰 Lancei <b>' + fmt(total) + '</b> de saída no Financeiro. Quando cada um devolver, marque <b>Pago</b> no débito do carro.' : ''}</div>`;
+        displayCobranca();
+    }
+
+    // ===== 📥 A PLANILHA DE DEVEDORES =====
+    function baixarPlanilhaDevedores() {
+        const linhas = [['Pessoa', 'Telefone', 'Carro', 'O que é', 'Data', 'Dias de atraso', 'Valor']];
+        let total = 0;
+        (database.carros || []).forEach(c => {
+            const carro = ((c.marca || '') + ' ' + (c.cor || '') + ' ' + (c.placa || '')).trim();
+            const dono = (c.carnes && c.carnes[0] && c.carnes[0].cliente) || c.clienteAtual || '';
+            const telDono = (c.carnes && c.carnes[0] && c.carnes[0].telefone) || '';
+            (c.debitos || []).forEach(d => {
+                if (d.pago || !Number(d.valor)) return;
+                const naData = clienteNaData(c, d.iso) || {};
+                linhas.push([d.cliente || naData.nome || dono, d.tel || naData.tel || telDono, carro,
+                             d.desc || 'Débito', d.dia || d.iso || '', '', Number(d.valor).toFixed(2)]);
+                total += Number(d.valor) || 0;
+            });
+            (c.carnes || []).forEach(k => {
+                if (k.encerrado) return;
+                (k.parcelas || []).forEach(p => {
+                    if (Number(p.pago) > 0 || !Number(p.valor)) return;
+                    if (semAno(p.venc)) return;
+                    const dias = diasAtraso(p.venc);
+                    if (dias <= 0) return;
+                    const mu = Math.round((Number(p.valor) || 0) * MULTA_PCT * 100) / 100;
+                    linhas.push([k.cliente || '', k.telefone || '', carro,
+                                 'Parcela ' + (p.n || ''), p.venc || '', dias, ((Number(p.valor) || 0) + mu).toFixed(2)]);
+                    total += (Number(p.valor) || 0) + mu;
+                });
+            });
+        });
+        if (linhas.length === 1) return alert('Ninguém devendo — nada para baixar. 🎉');
+        linhas.push([]); linhas.push(['TOTAL', '', '', '', '', '', total.toFixed(2)]);
+        const csv = '\ufeff' + linhas.map(l => l.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\n');
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'devedores-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    }
+
     let filtroCob = 'tudo';
     function filtrarCobranca(ev, f) {
         filtroCob = f;
@@ -6221,6 +6522,7 @@
     function displayCobranca() {
         const el = document.getElementById('cob-lista');
         if (!el) return;
+        cobEncherCarros();
         const devedores = {};
         let semData = 0;
         const encerrados = [];
