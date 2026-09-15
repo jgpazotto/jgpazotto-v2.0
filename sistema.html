@@ -4770,6 +4770,15 @@
             '<div style="color:#cfd8e3;font-size:13px">Para que serve esta foto? (clique de novo para desmarcar)</div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
               botao('comp') + botao('vist') + botao('anun') + botao('apol') + botao('doccar') + botao('docli') + '</div>' +
+            '<div style="color:#cfd8e3;font-size:12px;text-align:center;max-width:620px">' +
+              'Se o que está nesta foto <b>não foi escrito na conversa</b> (uma multa, um recibo que ninguém digitou), ' +
+              'crie o lançamento aqui — a foto já vai presa nele:</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
+              '<button onclick="zapNovaComFoto(\'cobrar\')" style="background:#fff8e1;color:#5a4500;border:0;' +
+                'padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🎫 Lançar multa/pedágio desta foto</button>' +
+              '<button onclick="zapNovaComFoto(\'gasto\')" style="background:#eef2f7;color:#33475b;border:0;' +
+                'padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">🔧 Lançar gasto desta foto</button>' +
+            '</div>' +
             '<button onclick="zapFotoFora(' + zapLupa.i + ',\'' + nome.replace(/'/g, "\\'") + '\');zapFecharLupa()" ' +
               'style="background:#ffffff22;color:#fff;border:1px solid #ffffff55;padding:7px 14px;border-radius:8px;' +
               'cursor:pointer;font-size:12px">✕ Esta foto não é desta linha</button>' +
@@ -5543,6 +5552,48 @@
         return t;
     }
 
+    // ===== LANÇAR O QUE NÃO ESTÁ ESCRITO NA CONVERSA =====
+    // Ela achou a foto de uma multa que ninguém digitou no grupo: não existia linha para marcar.
+    // Aqui eu crio a linha na mão, já com a foto presa nela e com a data da foto.
+    const MES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    function zapDiaBonitoIso(iso) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+        if (!m) return '';
+        return (+m[3]) + ' ' + MES_CURTO[(+m[2]) - 1] + '. ' + m[1].slice(2);
+    }
+    function zapCriarLinha(tipo, nome, iso) {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const quando = iso || hoje;
+        const a = {dia: zapDiaBonitoIso(quando), ano: quando.slice(0, 4), iso: quando,
+                   obs: '', gasto: 0, tipo: tipo, tipoTravado: true, usar: true, manual: true,
+                   quemPagou: (tipo === 'cobrar' || tipo === 'dano') ? 'jg' : undefined,
+                   repete: 1, datas: [], fotos: [], fotosInfo: {}, fotosFora: {}, destino: {}, fotosOk: []};
+        if (nome) {
+            a.fotos = [nome];
+            a.fotosInfo[nome] = {nome, dif: 0, iso: quando, dia: zapDiaBonitoIso(quando)};
+            a.destino[nome] = 'comp';
+        }
+        const c = carroDoZap();
+        const dono = c ? donoDaLinha(c, a.iso) : null;
+        if (dono) { a.cliente = dono.nome; a.tel = dono.tel; a.como = dono.como; }
+        zapAchados.unshift(a);
+        zapNovaLinha = zapChaveLinha(a);
+        zapFiltro = tipo;
+        zapSalvarRascunho();
+        mostrarZap();
+        setTimeout(() => {
+            const el = document.querySelector('[data-nova="1"] input');
+            if (el) { el.focus(); el.scrollIntoView({block: 'center'}); }
+        }, 60);
+    }
+    function zapNovaComFoto(tipo) {
+        const a = zapAchados[zapLupa.i], nome = a.fotos[zapLupa.k];
+        const f = (a.fotosInfo || {})[nome] || {};
+        zapFecharLupa();
+        zapCriarLinha(tipo, nome, f.iso || a.iso);
+    }
+    let zapNovaLinha = '';
+
     function zapChaveLinha(a) {
         return (a.iso || '') + '|' + a.gasto + '|' + String(a.obs || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -5565,7 +5616,11 @@
                 if (fo.length) item.fo = fo;
                 linhas[zapChaveLinha(a)] = item;
             });
-            c.zapRascunho = {quando: new Date().toISOString(), n: zapAchados.length, linhas};
+            const manuais = zapAchados.filter(a => a.manual).map(a => ({
+                dia: a.dia, ano: a.ano, iso: a.iso, obs: a.obs, gasto: a.gasto, tipo: a.tipo,
+                quemPagou: a.quemPagou, cliente: a.cliente, forma: a.forma, usar: a.usar,
+                fotos: a.fotos, fotosInfo: a.fotosInfo, destino: a.destino}));
+            c.zapRascunho = {quando: new Date().toISOString(), n: zapAchados.length, linhas, manuais};
             saveData();
             const el = document.getElementById('zap-rascunho-aviso');
             if (el) el.innerHTML = '💾 <b>Rascunho guardado</b> — o que você já marcou está salvo no carro. ' +
@@ -5592,7 +5647,19 @@
             if (it.u !== undefined && (it.u ? 1 : 0) !== (a.usar ? 1 : 0)) { a.usar = !!it.u; mudou = true; }
             if (mudou) voltaram++;
         });
-        if (voltaram) zapRascunhoInfo = '↩️ <b>Voltei ' + voltaram + ' linha(s)</b> que você já tinha conferido' +
+        // as linhas que ela criou na mão não estão na conversa: eu recrio uma a uma
+        let criadas = 0;
+        (r.manuais || []).forEach(m => {
+            const falsa = Object.assign({}, m, {manual: true, tipoTravado: true, repete: 1, datas: [],
+                                                fotosFora: {}, fotosOk: []});
+            if (zapAchados.some(a => a.manual && zapChaveLinha(a) === zapChaveLinha(falsa))) return;
+            falsa.jaSalva = (c.zapGravadas || {})[zapChaveLinha(falsa)] || null;
+            if (falsa.jaSalva) falsa.usar = false;
+            zapAchados.unshift(falsa);
+            criadas++;
+        });
+        if (criadas) zapRascunhoInfo = '➕ <b>Voltei ' + criadas + ' lançamento(s)</b> que você criou na mão. ';
+        if (voltaram) zapRascunhoInfo += '↩️ <b>Voltei ' + voltaram + ' linha(s)</b> que você já tinha conferido' +
             (fotos ? ' e <b>' + fotos + '</b> foto(s) escolhida(s)' : '') +
             ' (rascunho de ' + escapaHtml(dataBonitaIso((r.quando || '').slice(0, 10))) + ').';
     }
@@ -5793,11 +5860,14 @@
                 const selo = a.repete > 1 && !a.repetida
                     ? ` <a href="#" onclick="zapMostrarDatas(${i});return false"
                          style="font-size:11px;color:#b8912b;text-decoration:none">🔁 ${a.repete}×</a>` : '';
-                return `<tr style="background:${a.jaSalva ? '#eaf5ee' : (a.jaImportado ? '#fbfbfb' : (TIPOS[a.tipo] ? TIPOS[a.tipo].cor : ''))};
-                            ${a.jaImportado && !a.jaSalva ? 'opacity:.65' : ''}">
+                const ehNova = a.manual && zapChaveLinha(a) === zapNovaLinha;
+                return `<tr ${ehNova ? 'data-nova="1"' : ''} style="background:${a.jaSalva ? '#eaf5ee' : (a.jaImportado ? '#fbfbfb' : (TIPOS[a.tipo] ? TIPOS[a.tipo].cor : ''))};
+                            ${a.jaImportado && !a.jaSalva ? 'opacity:.65' : ''}${ehNova ? ';outline:2px solid #b8912b' : ''}">
                 <td style="text-align:center"><input type="checkbox" ${a.usar ? 'checked' : ''}
                     onchange="zapUsar(${i}, this.checked)"></td>
-                <td><input value="${escapaHtml(a.dia)}" onchange="zapAchados[${i}].dia=this.value"></td>
+                <td><input value="${escapaHtml(a.dia)}" onchange="zapAchados[${i}].dia=this.value">
+                    ${a.manual ? `<input type="date" value="${escapaHtml(a.iso || '')}" style="margin-top:3px;width:100%;font-size:11px"
+                        onchange="zapMudarData(${i}, this.value)" title="a data que vale para a cobrança">` : ''}</td>
                 <td><input type="number" step="0.01" value="${a.gasto}"
                     onchange="zapAchados[${i}].gasto=parseFloat(this.value)||0;agruparZap();mostrarZap()"></td>
                 <td><input value="${escapaHtml(a.obs)}" style="width:74%"
@@ -5829,6 +5899,7 @@
             </table></div>
             <div class="vd-rodape">
               <button class="btn" id="zap-btn-gravar" onclick="gravarZap()">💾 Gravar as ${zapAchados.filter(a => a.usar).length} marcadas</button>
+              <button class="btn btn-small" onclick="zapCriarLinha('cobrar','','')">🎫 Lançar uma multa que não está na conversa</button>
               <button class="btn btn-small" onclick="zapPrimeiraFoto()">📎 Guardar a 1ª foto de cada linha marcada</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>a.usar=false);mostrarZap()">Desmarcar tudo</button>
               <button class="btn btn-small" onclick="zapAchados.forEach(a=>{a.tipoTravado=false;a.clienteTravado=false});agruparZap();mostrarZap()">↩️ Voltar ao que eu sugeri</button>
@@ -5847,6 +5918,17 @@
         const p = String(iso || '').split('-');
         if (p.length !== 3) return String(iso || '');
         return Number(p[2]) + ' ' + (M[Number(p[1]) - 1] || '?') + '. ' + p[0];
+    }
+
+    function zapMudarData(i, iso) {
+        const a = zapAchados[i];
+        if (!iso) return;
+        a.iso = iso; a.ano = iso.slice(0, 4); a.dia = zapDiaBonitoIso(iso);
+        const c = carroDoZap();
+        const dono = c ? donoDaLinha(c, iso) : null;
+        if (dono && !a.clienteTravado) { a.cliente = dono.nome; a.tel = dono.tel; a.como = dono.como; }
+        zapSalvarRascunho();
+        mostrarZap();
     }
 
     function zapTrocarTipo(i, t) {
