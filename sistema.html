@@ -4756,6 +4756,18 @@
                'Tamanho das fotos:' + b('p', 'pequena') + b('m', 'média') + b('g', 'grande') + '</div>';
     }
 
+    // O ✓ da miniatura: marca a foto como COMPROVANTE deste lançamento sem abrir a lupa.
+    // Ela pediu isso quando as fotos ficaram grandes: o que já dá para ver na miniatura
+    // não precisa de dois cliques. Clicar de novo desmarca. Redesenho só a tirinha.
+    function zapMarcarComp(i, nome) {
+        const a = zapAchados[i]; if (!a) return;
+        a.destino = a.destino || {};
+        if (a.destino[nome] === 'comp') delete a.destino[nome];
+        else a.destino[nome] = 'comp';
+        zapAtualizarLinha(i);
+        zapAtualizarResumo();
+    }
+
     // Foto que não é desta linha: ela tira da linha (não apaga nada do computador).
     function zapFotoFora(i, nome) {
         const a = zapAchados[i]; if (!a) return;
@@ -4791,6 +4803,13 @@
             const tracejada = outroDia && !d ? 'border-style:dashed;' : '';
             const canto = d ? '<span style="position:absolute;right:-3px;top:-5px;font-size:12px">' +
                 ZAP_DEST[d].rot.slice(0, 2) + '</span>' : '';
+            const eComp = d === 'comp';
+            const certinho = '<span onclick="event.stopPropagation();zapMarcarComp(' + i + ',\'' + nome.replace(/'/g, "\\'") +
+                '\')" title="' + (eComp ? 'é o comprovante deste lançamento (clique para desmarcar)'
+                                        : 'marcar como comprovante deste lançamento') + '" ' +
+                'style="position:absolute;right:-4px;bottom:10px;width:26px;height:26px;line-height:24px;text-align:center;' +
+                'border-radius:50%;cursor:pointer;font-size:15px;font-weight:700;border:1px solid ' +
+                (eComp ? '#1e8449;background:#1e8449;color:#fff' : '#cfd8e3;background:#fff;color:#8a97a5') + '">✓</span>';
             const tirar = '<span onclick="event.stopPropagation();zapFotoFora(' + i + ',\'' + nome.replace(/'/g, "\\'") +
                 '\')" title="esta foto não é desta linha" style="position:absolute;left:-4px;top:-6px;background:#fff;' +
                 'border:1px solid #cfd8e3;border-radius:50%;width:17px;height:17px;line-height:15px;text-align:center;' +
@@ -4804,7 +4823,7 @@
                   'border-radius:6px;border:' + larg + ' solid ' + borda + ';' + tracejada + '">';
             return '<span style="position:relative;display:inline-block">' +
                    '<span onclick="zapAbrirFoto(' + i + ',' + k + ')" title="' + dica + '" ' +
-                   'style="display:inline-block;cursor:zoom-in">' + corpo + '</span>' + canto + tirar +
+                   'style="display:inline-block;cursor:zoom-in">' + corpo + '</span>' + canto + tirar + certinho +
                    (outroDia ? '<div style="font-size:10px;color:#a15c00;text-align:center;max-width:var(--zapf,120px)">⚠️ ' +
                         escapaHtml(f.dia || 'outro dia') + '</div>' : '') + '</span>';
         }).join('');
@@ -4813,15 +4832,23 @@
             quadros +
             (tem.length > 8 ? '<span style="font-size:10px;color:#7b8794">+' + (tem.length - 8) + '</span>' : '') +
             (escolhidas ? '<span style="font-size:11px;color:#1e8449;align-self:center">✓ ' + escolhidas + ' escolhida(s)</span>'
-                        : '<span style="font-size:11px;color:#7b8794;align-self:center">clique na foto para ver grande · ✕ tira a foto que não é desta linha</span>') +
+                        : '<span style="font-size:11px;color:#7b8794;align-self:center">✓ guarda como comprovante desta linha · ' +
+                          '✕ tira a foto que não é daqui · clique na foto para ver grande e escolher outro destino</span>') +
             (escondidas ? '<a href="#" onclick="zapFotosVoltar(' + i + ');return false" style="font-size:11px;color:#7b8794;align-self:center">' +
                 '↩️ ' + escondidas + ' escondida(s) — mostrar' + '</a>' : '') +
             '</div>';
     }
 
+    // Guardo a rolagem antes e devolvo depois: ela confere listas de 200 linhas e não pode
+    // perder o lugar quando a tirinha muda de altura.
     function zapAtualizarLinha(i) {
         const box = document.getElementById('zap-fotos-' + i);
-        if (box) box.outerHTML = zapTirinha(zapAchados[i], i);
+        if (!box) return;
+        const rol = document.getElementById('zap-rolagem');
+        const y = rol ? rol.scrollTop : 0, yp = window.scrollY;
+        box.outerHTML = zapTirinha(zapAchados[i], i);
+        if (rol) rol.scrollTop = y;
+        if (yp) window.scrollTo(0, yp);
     }
 
     // Marcar/desmarcar não redesenha a lista: só atualiza os números em cima.
@@ -5461,8 +5488,12 @@
     }
 
     function zapAtualizarResumo() {
+        const rol = document.getElementById('zap-rolagem');
+        const y = rol ? rol.scrollTop : 0, yp = window.scrollY;
         const a = document.getElementById('zap-abas');    if (a) a.innerHTML = zapHtmlAbas();
         const r = document.getElementById('zap-resumo');  if (r) r.innerHTML = zapHtmlResumo();
+        if (rol) rol.scrollTop = y;
+        if (yp) window.scrollTo(0, yp);
         const b = document.getElementById('zap-btn-gravar');
         if (b) b.textContent = '💾 Gravar as ' + zapAchados.filter(x => x.usar).length + ' marcadas';
     }
