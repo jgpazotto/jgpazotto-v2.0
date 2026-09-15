@@ -864,17 +864,22 @@
             <div class="form-grid">
                 <div class="form-group"><label>Fastrack</label><input type="text" id="carro-fastrack" placeholder="SITE"></div>
                 <div class="form-group"><label>Status</label>
-                    <select id="carro-status">
+                    <select id="carro-status" onchange="avisoPecas()">
                         <option value="ALUGADO">ALUGADO — está alugado</option>
                         <option value="PARCELA">PARCELA — vendido no carnê</option>
                         <option value="VENDIDO">VENDIDO — quitado</option>
                         <option value="GARAGEM">GARAGEM — parado</option>
                         <option value="OFICINA">OFICINA — em conserto</option>
                         <option value="PT">PT — perda total</option>
+                        <option value="PECAS">PEÇAS — virou peça para outros carros</option>
                         <option value="TX">TX</option>
                         <option value="SAIU">SAIU DA FROTA</option>
                     </select></div>
             </div>
+            <div id="carro-aviso-pecas" style="display:none;font-size:12px;background:#eef2f7;border-radius:6px;padding:8px 10px;margin:6px 0">
+                🔩 <b>Carro que virou peças.</b> Aqui basta a identidade (VIN, placa, ano, cor) e uma nota dizendo
+                <b>em quais carros as peças entraram</b> — o valor dele hoje está dentro dos outros carros, então não
+                precisa caçar gasto nenhum.</div>
             <div class="form-group"><label>Observações</label><textarea id="carro-desc" rows="2" placeholder="Anotações sobre o carro"></textarea></div>
             <button class="btn" style="background:var(--success)" onclick="passarParaVenda()">➡️ Passar este carro para venda</button>
         </div>
@@ -2912,6 +2917,7 @@
 
         renderGastosCarro(); renderVistoriaCarro(); renderFotosVistoria(); renderPagamentosCarro(); renderBalancoCarro(); atualizarBalanco();
         renderDocsCarro(c);
+        avisoPecas();          // depois de TODOS os campos preenchidos, senão lê o status do carro anterior
         renderNotas();
         renderCarnes(); renderDebitos(); renderLocacoes();
 
@@ -3018,7 +3024,8 @@
         classicos:{nome: '🏛️ Clássicos',     testa: c => _tp(c) === 'CLASSICO'},
         vendidos: {nome: '✅ Vendidos',      testa: c => _st(c) === 'VENDIDO'},
         pt:       {nome: '💥 Perda total',   testa: c => _st(c) === 'PT'},
-        saiu:     {nome: '📦 Saiu da frota', testa: c => ['VENDIDO','PT','SAIU'].includes(_st(c))},
+        pecas:    {nome: '🔩 Virou peças',   testa: c => _st(c) === 'PECAS'},
+        saiu:     {nome: '📦 Saiu da frota', testa: c => ['VENDIDO','PT','SAIU','PECAS'].includes(_st(c))},
         todos:    {nome: '📋 Todos',         testa: () => true},
     };
 
@@ -3099,6 +3106,12 @@
                          'border:1px solid #dfe6ec;border-radius:6px;background:#f7f9fb">📄</span>'
                        : '<img src="' + x.foto + '" style="width:86px;height:86px;object-fit:cover;border:1px solid #dfe6ec;border-radius:6px">') +
                 '<div>' + escapaHtml(x.dia || '') + '</div></a>').join('') + '</div>';
+    }
+
+    function avisoPecas() {
+        const el = document.getElementById('carro-aviso-pecas');
+        const st = document.getElementById('carro-status');
+        if (el && st) el.style.display = st.value === 'PECAS' ? 'block' : 'none';
     }
 
     function lerSeguroDoForm() {
