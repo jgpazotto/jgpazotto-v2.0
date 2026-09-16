@@ -949,6 +949,8 @@
                 <div class="resumo-card"><small>Valor do carnê</small><b id="carne-total">$ 0,00</b></div>
                 <div class="resumo-card"><small>Recebido</small><b id="carne-receb">$ 0,00</b></div>
                 <div class="resumo-card"><small>Falta pagar</small><b id="carne-falta" class="val-neg">$ 0,00</b></div>
+                <div class="resumo-card"><small>Juros por atraso</small><b id="carne-juros" class="val-neg">$ 0,00</b></div>
+                <div class="resumo-card"><small>Seguro descontado</small><b id="carne-seg">$ 0,00</b></div>
             </div>
             <div id="carne-quitado"></div>
         </div>
@@ -1651,6 +1653,7 @@
         }
         database = doBanco;
         ensureDbProperties();
+        migrarMultasPerdoadas();
         Object.entries(separarEmAreas()).forEach(([a, c]) => _enviado[a] = JSON.stringify(c));
         try { localStorage.setItem('jgpazotto_data', JSON.stringify(database)); } catch (e) {}
         marcarLocalAgora();
@@ -3454,12 +3457,56 @@
         const hoje = new Date(); hoje.setHours(0,0,0,0);
         return Math.floor((hoje - d) / 86400000);
     }
-    function multaDe(p) {
-        if (p.multaManual !== undefined && p.multaManual !== null && p.multaManual !== '')
-            return Number(p.multaManual) || 0;
-        const paga = Number(p.pago) > 0;
-        if (paga) return 0;
-        return diasAtraso(p.venc) > 0 ? Math.round((Number(p.valor) || 0) * MULTA_PCT * 100) / 100 : 0;
+    // 🔴 JUROS AUTOMATICO — pedido dela em 16/09/26:
+    // "lembra dos carnes de venda para ja add automatico o juros quando o cliente
+    //  nao fizer o pagamento na data marcada".
+    // Regra: parcela NAO paga e ja vencida => juros de 10% do valor da parcela,
+    // sozinho, sem ela clicar em nada. Ela pode PERDOAR uma parcela
+    // (p.multaPerdoada) ou escrever outro valor (p.multaManual > 0 — como os
+    // $15 da parcela 30 do Renan). Cada carne pode ter a sua % (k.jurosPct).
+    function jurosPctDe(k) {
+        const v = (k && k.jurosPct !== undefined && k.jurosPct !== '' && k.jurosPct !== null)
+            ? Number(k.jurosPct) : MULTA_PCT * 100;
+        return (isNaN(v) ? MULTA_PCT * 100 : v) / 100;
+    }
+    function multaDe(p, k) {
+        if (!p) return 0;
+        if (p.multaPerdoada) return 0;              // ela perdoou esta semana
+        // valor escrito na mao vale ate quando a parcela foi paga em parte
+        // (parcela 30 do Renan: pagou 200, juros de 15)
+        if (Number(p.multaManual) > 0) return Number(p.multaManual);
+        if (Number(p.pago) > 0) return 0;           // pagou: nao tem juros
+        if (semAno(p.venc)) return 0;               // sem o ano nao da para saber se atrasou
+        return diasAtraso(p.venc) > 0
+            ? Math.round((Number(p.valor) || 0) * jurosPctDe(k) * 100) / 100 : 0;
+    }
+    // As planilhas antigas vieram com "multa 0" escrito na mao em parcelas que
+    // ela decidiu NAO cobrar (as semanas em que o Renan estava no Brasil, por
+    // exemplo). Agora que o juros e automatico, esse zero vira "perdoado" —
+    // senao o sistema passaria a cobrar o que ela ja tinha perdoado.
+    function migrarMultasPerdoadas() {
+        (database.carros || []).forEach(c => (c.carnes || []).forEach(k => {
+            (k.parcelas || []).forEach(p => {
+                if (p.multaPerdoada !== undefined) return;
+                const zeroEscrito = p.multaManual !== undefined && p.multaManual !== null
+                    && p.multaManual !== '' && Number(p.multaManual) === 0;
+                if (zeroEscrito && !(Number(p.pago) > 0)) p.multaPerdoada = true;
+            });
+        }));
+    }
+    function perdoarJuros(ki, pi, perdoar) {
+        const p = cCarnes[ki].parcelas[pi];
+        p.multaPerdoada = !!perdoar;
+        if (!perdoar) p.multaManual = undefined;
+        renderCarnes();
+    }
+    function perdoarJurosCarro(carroId, ki, pi, perdoar) {
+        const c = (database.carros || []).find(x => x.id === carroId);
+        if (!c) return;
+        const p = c.carnes[ki].parcelas[pi];
+        p.multaPerdoada = !!perdoar;
+        if (!perdoar) p.multaManual = undefined;
+        saveData();
     }
     // O seguro é definido por cliente (cada carnê tem o seu). Se o cliente não
     // desconta seguro, fica zero. A parcela pode ter um valor próprio.
@@ -3469,7 +3516,7 @@
         return (k.seguroValor === undefined || k.seguroValor === '') ? SEGURO_PADRAO : (Number(k.seguroValor) || 0);
     }
     function liquidoDe(p, k) {
-        return (Number(p.pago) || 0) - seguroDe(p, k) - multaDe(p);
+        return (Number(p.pago) || 0) - seguroDe(p, k) - multaDe(p, k);
     }
     const FREQ_DIAS = {semanal: 7, quinzenal: 14, mensal: 30};
 
@@ -3507,7 +3554,7 @@
         if (!el) return;
         el.innerHTML = cCarnes.map((k, ki) => {
             const linhas = (k.parcelas || []).map((p, pi) => {
-                const s = situacao(p), mu = multaDe(p), sg = seguroDe(p, k);
+                const s = situacao(p), mu = multaDe(p, k), sg = seguroDe(p, k);
                 return `<tr class="${s.linha}">
                     <td style="text-align:center">${p.n || '—'}</td>
                     <td><input value="${(p.venc||'').replace(/"/g,'&quot;')}" onchange="cCarnes[${ki}].parcelas[${pi}].venc=this.value;renderCarnes()"></td>
@@ -3515,7 +3562,11 @@
                     <td><input type="number" step="0.01" value="${p.pago||''}" onchange="cCarnes[${ki}].parcelas[${pi}].pago=parseFloat(this.value)||0;renderCarnes()"></td>
                     <td><input value="${(p.dtpg||'').replace(/"/g,'&quot;')}" onchange="cCarnes[${ki}].parcelas[${pi}].dtpg=this.value;renderCarnes()"></td>
                     <td style="text-align:right;color:#888">${sg ? fmt(sg) : '—'}</td>
-                    <td style="text-align:right;color:${mu ? 'var(--danger)' : '#888'}">${mu ? fmt(mu) : '—'}</td>
+                    <td style="text-align:right;color:${mu ? 'var(--danger)' : '#888'};white-space:nowrap">${
+                        p.multaPerdoada
+                            ? `<span style="color:#7b8794" title="juros perdoado">perdoado</span> <button class="btn btn-small" style="padding:1px 5px" title="voltar a cobrar o juros" onclick="perdoarJuros(${ki},${pi},false)">↩︎</button>`
+                            : (mu ? `${fmt(mu)} <button class="del" title="perdoar o juros desta parcela" onclick="perdoarJuros(${ki},${pi},true)">✕</button>` : '—')
+                    }</td>
                     <td style="text-align:right"><strong>${fmt(liquidoDe(p, k))}</strong></td>
                     <td><span class="badge ${s.cls}">${s.txt}</span></td>
                     <td><button class="del" onclick="cCarnes[${ki}].parcelas.splice(${pi},1);renderCarnes()">✕</button></td></tr>`;
@@ -3541,6 +3592,9 @@
                         Descontar seguro</label>
                     ${k.descontaSeguro ? `<span>Valor do seguro $
                         <input type="number" step="0.01" value="${k.seguroValor===undefined?50:k.seguroValor}" onchange="cCarnes[${ki}].seguroValor=parseFloat(this.value)||0;renderCarnes()" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:3px"></span>` : ''}
+                    <span title="quando a parcela vence e o cliente nao paga, o sistema soma este juros sozinho">⚠️ Juros por semana atrasada
+                        <input type="number" step="0.01" value="${k.jurosPct===undefined?10:k.jurosPct}" onchange="cCarnes[${ki}].jurosPct=parseFloat(this.value)||0;renderCarnes()" style="width:60px;padding:4px;border:1px solid var(--border);border-radius:3px">%
+                        <span style="color:#7b8794">da parcela — entra sozinho</span></span>
                 </div>
                 ${k.obs ? `<div class="obs-pag">${k.obs}</div>` : ''}
                 <div style="overflow-x:auto"><table class="mini-table">
@@ -3594,10 +3648,12 @@
         renderCarnes();
     }
     function atualizarCarne() {
-        let total = 0, receb = 0;
+        let total = 0, receb = 0, juros = 0, segTot = 0;
         cCarnes.forEach(k => (k.parcelas || []).forEach(p => {
             total += Number(p.valor) || 0;
             receb += liquidoDe(p, k);
+            juros += multaDe(p, k);
+            segTot += (Number(p.pago) > 0) ? seguroDe(p, k) : 0;
         }));
         const vv = parseFloat(document.getElementById('carro-valorvenda')?.value);
         if (!isNaN(vv) && vv > 0) total = vv;
@@ -3608,6 +3664,8 @@
         g('carne-receb').textContent = fmt(receb);
         g('carne-falta').textContent = fmt(falta);
         g('carne-falta').className = falta > 0 ? 'val-neg' : 'val-pos';
+        if (g('carne-juros')) g('carne-juros').textContent = fmt(juros);
+        if (g('carne-seg'))   g('carne-seg').textContent   = fmt(segTot);
         g('carne-quitado').innerHTML = (total > 0 && falta <= 0)
             ? '<div class="card-quitado" style="background:#f3faf5;border:1px solid #cfe8d8;border-radius:8px;padding:14px;margin-top:6px;"><strong>✅ Carnê quitado!</strong> Já pode mandar o documento do carro para o cliente.</div>'
             : '';
@@ -4576,9 +4634,11 @@
                 <td style="text-align:center">${l.p.n || '—'}</td>
                 <td>${l.p.venc || ''} ${l.sa ? '<span class="badge badge-warning">falta o ano</span>' : (l.dias > 0 ? `<span class="badge badge-atraso">${l.dias}d</span>` : '')}</td>
                 <td style="text-align:right">${fmt(Number(l.p.valor) || 0)}</td>
-                <td style="text-align:right">${l.multa
-                    ? `<b class="val-neg">${fmt(l.multa)}</b> <button class="del" title="tirar a multa" onclick="tirarMulta(${x.carroId}, ${x.ki}, ${l.pi})">✕</button>`
-                    : (l.sug ? `<span style="color:#aaa">${fmt(l.sug)}</span> <button class="btn btn-small" style="padding:2px 6px" title="cobrar os 10%" onclick="aplicarMulta(${x.carroId}, ${x.ki}, ${l.pi})">+10%</button>` : '—')}</td>
+                <td style="text-align:right;white-space:nowrap">${l.multa
+                    ? `<b class="val-neg">${fmt(l.multa)}</b> <button class="del" title="perdoar o juros desta parcela" onclick="perdoarJurosCarro(${x.carroId}, ${x.ki}, ${l.pi}, true)">✕</button>`
+                    : (l.p.multaPerdoada
+                        ? `<span style="color:#7b8794">perdoado</span> <button class="btn btn-small" style="padding:1px 5px" title="voltar a cobrar o juros" onclick="perdoarJurosCarro(${x.carroId}, ${x.ki}, ${l.pi}, false)">↩︎</button>`
+                        : '—')}</td>
                 <td style="text-align:right"><b>${fmt((Number(l.p.valor) || 0) + l.multa)}</b></td>
                 <td><input type="number" step="0.01" id="bx-v-${x.carroId}-${x.ki}-${l.pi}" value="${(Number(l.p.valor) || 0) + l.multa}"></td>
                 <td><input id="bx-d-${x.carroId}-${x.ki}-${l.pi}" value="${hojeCurto()}"></td>
