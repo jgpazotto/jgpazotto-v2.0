@@ -3485,19 +3485,28 @@
     // ela decidiu NAO cobrar (as semanas em que o Renan estava no Brasil, por
     // exemplo). Agora que o juros e automatico, esse zero vira "perdoado" —
     // senao o sistema passaria a cobrar o que ela ja tinha perdoado.
+    // ⚠️ A regra fina (achada em 18/09 no carnê do Bruno): um "multa 0" só quer dizer
+    // PERDÃO quando naquele mesmo carnê ela cobrou juros em ALGUMA parcela. Carnê em que
+    // a coluna de juros está zerada do começo ao fim é coluna que ela nunca preencheu —
+    // ali o juros tem que entrar sozinho, senão o sistema perdoa o que ninguém perdoou.
+    // Recalcula sempre (é idempotente) e nunca mexe no que ela decidiu na mão (perdaoManual).
     function migrarMultasPerdoadas() {
         (database.carros || []).forEach(c => (c.carnes || []).forEach(k => {
+            const usaJuros = (k.parcelas || []).some(p => Number(p.multaManual) > 0);
             (k.parcelas || []).forEach(p => {
-                if (p.multaPerdoada !== undefined) return;
+                if (p.perdaoManual) return;
                 const zeroEscrito = p.multaManual !== undefined && p.multaManual !== null
                     && p.multaManual !== '' && Number(p.multaManual) === 0;
-                if (zeroEscrito && !(Number(p.pago) > 0)) p.multaPerdoada = true;
+                const perdoar = usaJuros && zeroEscrito && !(Number(p.pago) > 0);
+                if (perdoar) p.multaPerdoada = true;
+                else if (p.multaPerdoada) delete p.multaPerdoada;
             });
         }));
     }
     function perdoarJuros(ki, pi, perdoar) {
         const p = cCarnes[ki].parcelas[pi];
         p.multaPerdoada = !!perdoar;
+        p.perdaoManual = true;              // decisão dela: a migração não mexe mais nesta
         if (!perdoar) p.multaManual = undefined;
         renderCarnes();
     }
@@ -3506,6 +3515,7 @@
         if (!c) return;
         const p = c.carnes[ki].parcelas[pi];
         p.multaPerdoada = !!perdoar;
+        p.perdaoManual = true;
         if (!perdoar) p.multaManual = undefined;
         saveData();
     }
