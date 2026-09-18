@@ -3431,6 +3431,9 @@
     let cCarnes = [], cDebitos = [];
     const MULTA_PCT = 0.10;                 // 10% da parcela quando atrasa
     const SEGURO_PADRAO = 50;
+    // Regra dela (18/09/26): "ate 2 dias de atraso tambem damos uma ajuda".
+    // Entao o juros so comeca a contar depois de 2 dias de atraso.
+    const CARENCIA_DIAS = 2;
 
     const MES3 = {jan:0, fev:1, mar:2, abr:3, mai:4, jun:5, jul:6, ago:7, set:8, out:9, nov:10, dez:11};
     function parseVenc(txt) {
@@ -3478,7 +3481,7 @@
         if (Number(p.multaManual) > 0) return Number(p.multaManual);
         if (Number(p.pago) > 0) return 0;           // pagou: nao tem juros
         if (semAno(p.venc)) return 0;               // sem o ano nao da para saber se atrasou
-        return diasAtraso(p.venc) > 0
+        return diasAtraso(p.venc) > CARENCIA_DIAS
             ? Math.round((Number(p.valor) || 0) * jurosPctDe(k) * 100) / 100 : 0;
     }
     // As planilhas antigas vieram com "multa 0" escrito na mao em parcelas que
@@ -3536,7 +3539,7 @@
     function multaSugerida(p) {
         if (Number(p.pago) > 0) return 0;
         if (semAno(p.venc)) return 0;
-        return diasAtraso(p.venc) > 0 ? Math.round((Number(p.valor) || 0) * MULTA_PCT * 100) / 100 : 0;
+        return diasAtraso(p.venc) > CARENCIA_DIAS ? Math.round((Number(p.valor) || 0) * MULTA_PCT * 100) / 100 : 0;
     }
     function aplicarMulta(carroId, ki, pi) {
         const c = (database.carros || []).find(x => x.id === carroId);
@@ -4547,7 +4550,7 @@
 
     // ===== DAR BAIXA =====
     let filtroBaixa = 'vencidas';
-    const BX_FILTROS = [['vencidas','Vencidas até hoje'], ['mes','Vencem este mês'], ['todas','Todas em aberto']];
+    const BX_FILTROS = [['vencidas','Vencidas até hoje'], ['lembrar','🔔 Vencem em até 7 dias'], ['mes','Vencem este mês'], ['todas','Todas em aberto']];
     function filtrarBaixa(f) { filtroBaixa = f; displayBaixa(); }
 
     function hojeISO() {
@@ -4557,6 +4560,77 @@
     function hojeCurto() {
         const d = new Date();
         return d.getDate() + ' ' + ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()] + '. ' + String(d.getFullYear()).slice(2);
+    }
+
+    /* ===== 💬 MENSAGEM DE COBRANCA PRONTA =====
+       Pedido dela em 18/09/26: "precisamos arrumar as fichas dele para conseguir mandar uma
+       msg automatica todo mes lembrando do pagamento... estamos com mts devedores".
+       O site nao consegue ENVIAR sozinho, mas monta a mensagem inteira e abre o WhatsApp da
+       pessoa com o texto ja escrito: 2 cliques. */
+    const FREQ_TXT = {semanal: 'toda semana', quinzenal: 'a cada 15 dias', mensal: 'todo mes'};
+    function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
+    function linkWhatsapp(tel, texto) {
+        let d = soDigitos(tel);
+        if (d.length === 10) d = '1' + d;            // numero dos EUA sem o codigo do pais
+        if (!d) return '';
+        return 'https://wa.me/' + d + '?text=' + encodeURIComponent(texto);
+    }
+    function textoCobranca(carroId, ki) {
+        const c = (database.carros || []).find(x => x.id === carroId);
+        if (!c) return null;
+        const k = (c.carnes || [])[ki];
+        if (!k) return null;
+        const carro = `${c.marca || ''} ${c.cor || ''}${c.placa ? ' · ' + c.placa : ''}`.replace(/\s+/g, ' ').trim();
+        const nome = (k.cliente || '').split(' ')[0] || 'tudo bem';
+        const atrasadas = [], proximas = [];
+        (k.parcelas || []).forEach(p => {
+            if (Number(p.pago) > 0 || !Number(p.valor)) return;
+            if (semAno(p.venc)) return;
+            const d = diasAtraso(p.venc);
+            if (d > 0) atrasadas.push({p, d});
+            else if (d > -8) proximas.push({p, d});
+        });
+        let txt = 'Oi ' + nome + '! Tudo bem?\n\nÉ sobre o ' + carro + '.\n\n';
+        let total = 0;
+        if (atrasadas.length) {
+            txt += (atrasadas.length === 1 ? 'Ficou uma parcela em aberto:\n' : 'Ficaram estas parcelas em aberto:\n');
+            atrasadas.forEach(function (a) {
+                const mu = multaDe(a.p, k);
+                total += (Number(a.p.valor) || 0) + mu;
+                txt += '• ' + a.p.venc + ' — ' + fmt(Number(a.p.valor) || 0)
+                     + (mu ? ' + ' + fmt(mu) + ' de juros' : '')
+                     + ' (' + a.d + (a.d === 1 ? ' dia' : ' dias') + ')\n';
+            });
+            txt += '\nTotal: ' + fmt(total) + '\n';
+        } else if (proximas.length) {
+            const a = proximas[0];
+            total = Number(a.p.valor) || 0;
+            txt += 'Passando só para lembrar da parcela de ' + fmt(total) + ', que vence ' + a.p.venc
+                 + (a.d === 0 ? ' — é hoje!' : ' (em ' + (-a.d) + (a.d === -1 ? ' dia' : ' dias') + ')') + '.\n';
+        } else {
+            txt += 'Está tudo em dia por aqui, obrigada! 🙌\n';
+        }
+        const falta = Math.round(faltaNoCarne(c) * 100) / 100;
+        if (falta > 0) txt += '\nPara terminar o carnê faltam ' + fmt(falta)
+             + (k.frequencia ? ' (' + (FREQ_TXT[k.frequencia] || '') + ')' : '') + '.';
+        txt += '\n\nQualquer coisa é só me chamar. Obrigada! 🙏\nJG Pazotto';
+        return {texto: txt, tel: k.telefone || '', nome: k.cliente || '', total: total};
+    }
+    function abrirWhatsapp(carroId, ki) {
+        const m = textoCobranca(carroId, ki);
+        if (!m) return;
+        const url = linkWhatsapp(m.tel, m.texto);
+        if (!url) { copiarCobranca(carroId, ki, true); return; }
+        window.open(url, '_blank');
+    }
+    function copiarCobranca(carroId, ki, semTelefone) {
+        const m = textoCobranca(carroId, ki);
+        if (!m) return;
+        const aviso = semTelefone
+            ? 'Este cliente ainda não tem telefone na ficha. Copiei a mensagem para você colar:'
+            : 'Mensagem copiada! É só colar no WhatsApp:';
+        try { navigator.clipboard.writeText(m.texto); alert(aviso + '\n\n' + m.texto); }
+        catch (e) { prompt(aviso, m.texto); }
     }
 
     // Marca a parcela como paga. Guardo o estado anterior para poder desfazer.
@@ -4607,6 +4681,7 @@
                     const d = parseVenc(p.venc);
                     const dias = sa ? null : diasAtraso(p.venc);
                     if (filtroBaixa === 'vencidas' && !(dias > 0)) return;
+                    if (filtroBaixa === 'lembrar' && !(dias !== null && dias <= 0 && dias >= -7)) return;
                     if (filtroBaixa === 'mes' && !(d && d <= fimMes)) return;
                     linhas.push({p, pi, dias, sa, multa: multaDe(p), sug: multaSugerida(p)});
                 });
@@ -4657,6 +4732,8 @@
               </tr>`).join('')}</tbody>
             </table></div>
             <div class="vd-rodape">
+              <button class="btn btn-small" style="background:#25D366;border-color:#25D366;color:#fff" onclick="abrirWhatsapp(${x.carroId}, ${x.ki})">💬 Cobrar no WhatsApp</button>
+              <button class="btn btn-small" onclick="copiarCobranca(${x.carroId}, ${x.ki})">📋 Copiar a mensagem</button>
               <button class="btn btn-small" onclick="abrirVendaCarro(${x.carroId})">📖 Abrir o carnê completo</button>
             </div>
         </div>`).join('');
