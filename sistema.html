@@ -3606,6 +3606,10 @@
                         Descontar seguro</label>
                     ${k.descontaSeguro ? `<span>Valor do seguro $
                         <input type="number" step="0.01" value="${k.seguroValor===undefined?50:k.seguroValor}" onchange="cCarnes[${ki}].seguroValor=parseFloat(this.value)||0;renderCarnes()" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:3px"></span>` : ''}
+                    <span title="a mensagem de cobrança sai nesta língua">🌎 Fala
+                        <select onchange="cCarnes[${ki}].idioma=this.value;renderCarnes()" style="padding:4px;border:1px solid var(--border);border-radius:3px">
+                            ${Object.entries(IDIOMAS).map(([v, r]) => `<option value="${v}" ${(k.idioma||'pt')===v?'selected':''}>${r}</option>`).join('')}
+                        </select></span>
                     <span title="quando a parcela vence e o cliente nao paga, o sistema soma este juros sozinho">⚠️ Juros por semana atrasada
                         <input type="number" step="0.01" value="${k.jurosPct===undefined?10:k.jurosPct}" onchange="cCarnes[${ki}].jurosPct=parseFloat(this.value)||0;renderCarnes()" style="width:60px;padding:4px;border:1px solid var(--border);border-radius:3px">%
                         <span style="color:#7b8794">da parcela — entra sozinho</span></span>
@@ -4567,7 +4571,50 @@
        msg automatica todo mes lembrando do pagamento... estamos com mts devedores".
        O site nao consegue ENVIAR sozinho, mas monta a mensagem inteira e abre o WhatsApp da
        pessoa com o texto ja escrito: 2 cliques. */
-    const FREQ_TXT = {semanal: 'toda semana', quinzenal: 'a cada 15 dias', mensal: 'todo mes'};
+    /* 🌎 A mensagem sai na LÍNGUA DO CLIENTE. Pedido dela em 18/09/26: o Francis é americano
+       (inglês) e Ivone, Magda, Jiner, Rosalinda e o Daniel do C-MAX azul são de língua
+       espanhola. A língua fica no carnê (k.idioma): 'pt' (padrão), 'en' ou 'es'. */
+    const IDIOMAS = {pt: '🇧🇷 Português', en: '🇺🇸 English', es: '🇪🇸 Español'};
+    const MES_PT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    const MES_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const MES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    function dataNoIdioma(venc, idi) {
+        if (!idi || idi === 'pt') return venc;
+        const alvo = idi === 'en' ? MES_EN : MES_ES;
+        return String(venc).replace(/([a-zç]{3})\.?/i, function (t, m) {
+            const i = MES_PT.indexOf(m.toLowerCase());
+            return i >= 0 ? alvo[i] + (idi === 'es' ? '.' : '') : t;
+        });
+    }
+    const FRASES = {
+        pt: {oi: n => 'Oi ' + n + '! Tudo bem?', sobre: c => 'É sobre o ' + c + '.',
+             uma: 'Ficou uma parcela em aberto:', varias: 'Ficaram estas parcelas em aberto:',
+             juros: ' de juros', dia: d => d + (d === 1 ? ' dia' : ' dias'),
+             total: 'Total: ', lembrete: (v, d) => 'Passando só para lembrar da parcela de ' + v + ', que vence ' + d,
+             hoje: ' — é hoje!', emDias: d => ' (em ' + d + (d === 1 ? ' dia' : ' dias') + ')',
+             emDia: 'Está tudo em dia por aqui, obrigada! 🙌',
+             falta: (v, f) => 'Para terminar o carnê faltam ' + v + (f ? ' (' + f + ')' : '') + '.',
+             fim: 'Qualquer coisa é só me chamar. Obrigada! 🙏',
+             freq: {semanal: 'toda semana', quinzenal: 'a cada 15 dias', mensal: 'todo mês'}},
+        en: {oi: n => 'Hi ' + n + '! How are you?', sobre: c => "It's about the " + c + '.',
+             uma: 'One payment is still open:', varias: 'These payments are still open:',
+             juros: ' late fee', dia: d => d + (d === 1 ? ' day' : ' days'),
+             total: 'Total: ', lembrete: (v, d) => 'Just a friendly reminder about the ' + v + ' payment, due ' + d,
+             hoje: ' — that\'s today!', emDias: d => ' (in ' + d + (d === 1 ? ' day' : ' days') + ')',
+             emDia: "Everything is up to date, thank you! 🙌",
+             falta: (v, f) => v + ' left to finish the payment plan' + (f ? ' (' + f + ')' : '') + '.',
+             fim: 'Let me know if you have any questions. Thank you! 🙏',
+             freq: {semanal: 'weekly', quinzenal: 'every two weeks', mensal: 'monthly'}},
+        es: {oi: n => '¡Hola ' + n + '! ¿Cómo estás?', sobre: c => 'Es sobre el ' + c + '.',
+             uma: 'Quedó una cuota pendiente:', varias: 'Quedaron estas cuotas pendientes:',
+             juros: ' de mora', dia: d => d + (d === 1 ? ' día' : ' días'),
+             total: 'Total: ', lembrete: (v, d) => 'Solo para recordarte la cuota de ' + v + ', que vence el ' + d,
+             hoje: ' — ¡es hoy!', emDias: d => ' (en ' + d + (d === 1 ? ' día' : ' días') + ')',
+             emDia: '¡Todo está al día, gracias! 🙌',
+             falta: (v, f) => 'Para terminar faltan ' + v + (f ? ' (' + f + ')' : '') + '.',
+             fim: 'Cualquier cosa me avisas. ¡Gracias! 🙏',
+             freq: {semanal: 'cada semana', quinzenal: 'cada 15 días', mensal: 'cada mes'}}
+    };
     function soDigitos(t) { return String(t || '').replace(/\D/g, ''); }
     function linkWhatsapp(tel, texto) {
         let d = soDigitos(tel);
@@ -4581,7 +4628,9 @@
         const k = (c.carnes || [])[ki];
         if (!k) return null;
         const carro = `${c.marca || ''} ${c.cor || ''}${c.placa ? ' · ' + c.placa : ''}`.replace(/\s+/g, ' ').trim();
-        const nome = (k.cliente || '').split(' ')[0] || 'tudo bem';
+        const idi = k.idioma || 'pt';
+        const F = FRASES[idi] || FRASES.pt;
+        const nome = (k.cliente || '').split(' ')[0] || '';
         const atrasadas = [], proximas = [];
         (k.parcelas || []).forEach(p => {
             if (Number(p.pago) > 0 || !Number(p.valor)) return;
@@ -4590,30 +4639,29 @@
             if (d > 0) atrasadas.push({p, d});
             else if (d > -8) proximas.push({p, d});
         });
-        let txt = 'Oi ' + nome + '! Tudo bem?\n\nÉ sobre o ' + carro + '.\n\n';
+        let txt = F.oi(nome) + '\n\n' + F.sobre(carro) + '\n\n';
         let total = 0;
         if (atrasadas.length) {
-            txt += (atrasadas.length === 1 ? 'Ficou uma parcela em aberto:\n' : 'Ficaram estas parcelas em aberto:\n');
+            txt += (atrasadas.length === 1 ? F.uma : F.varias) + '\n';
             atrasadas.forEach(function (a) {
                 const mu = multaDe(a.p, k);
                 total += (Number(a.p.valor) || 0) + mu;
-                txt += '• ' + a.p.venc + ' — ' + fmt(Number(a.p.valor) || 0)
-                     + (mu ? ' + ' + fmt(mu) + ' de juros' : '')
-                     + ' (' + a.d + (a.d === 1 ? ' dia' : ' dias') + ')\n';
+                txt += '• ' + dataNoIdioma(a.p.venc, idi) + ' — ' + fmt(Number(a.p.valor) || 0)
+                     + (mu ? ' + ' + fmt(mu) + F.juros : '')
+                     + ' (' + F.dia(a.d) + ')\n';
             });
-            txt += '\nTotal: ' + fmt(total) + '\n';
+            txt += '\n' + F.total + fmt(total) + '\n';
         } else if (proximas.length) {
             const a = proximas[0];
             total = Number(a.p.valor) || 0;
-            txt += 'Passando só para lembrar da parcela de ' + fmt(total) + ', que vence ' + a.p.venc
-                 + (a.d === 0 ? ' — é hoje!' : ' (em ' + (-a.d) + (a.d === -1 ? ' dia' : ' dias') + ')') + '.\n';
+            txt += F.lembrete(fmt(total), dataNoIdioma(a.p.venc, idi))
+                 + (a.d === 0 ? F.hoje : F.emDias(-a.d)) + '.\n';
         } else {
-            txt += 'Está tudo em dia por aqui, obrigada! 🙌\n';
+            txt += F.emDia + '\n';
         }
         const falta = Math.round(faltaNoCarne(c) * 100) / 100;
-        if (falta > 0) txt += '\nPara terminar o carnê faltam ' + fmt(falta)
-             + (k.frequencia ? ' (' + (FREQ_TXT[k.frequencia] || '') + ')' : '') + '.';
-        txt += '\n\nQualquer coisa é só me chamar. Obrigada! 🙏\nJG Pazotto';
+        if (falta > 0) txt += '\n' + F.falta(fmt(falta), k.frequencia ? (F.freq[k.frequencia] || '') : '');
+        txt += '\n\n' + F.fim + '\nJG Pazotto';
         return {texto: txt, tel: k.telefone || '', nome: k.cliente || '', total: total};
     }
     function abrirWhatsapp(carroId, ki) {
